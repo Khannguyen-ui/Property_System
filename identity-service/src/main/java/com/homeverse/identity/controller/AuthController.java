@@ -30,8 +30,6 @@ public class AuthController {
                 .build();
     }
 
-    // === BỔ SUNG 2 HÀM CÒN THIẾU Ở ĐÂY ===
-
     @PostMapping("/forgot-password")
     public ApiResponse<String> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
         authService.sendForgotPasswordEmail(request.getEmail());
@@ -47,11 +45,20 @@ public class AuthController {
                 .result("Mật khẩu đã được cập nhật thành công.")
                 .build();
     }
+
     @PostMapping("/change-password")
     public ApiResponse<String> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
         authService.changePassword(request);
         return ApiResponse.<String>builder()
                 .result("Đổi mật khẩu thành công! Vui lòng đăng nhập lại.")
+                .build();
+    }
+
+    @PutMapping("/change-email")
+    public ApiResponse<String> changeEmail(@RequestBody ChangeEmailRequest request) {
+        authService.changeEmail(request);
+        return ApiResponse.<String>builder()
+                .result("Đổi email thành công. Vui lòng đăng nhập lại bằng email mới!")
                 .build();
     }
 }

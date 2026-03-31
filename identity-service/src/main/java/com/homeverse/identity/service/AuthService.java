@@ -1,5 +1,6 @@
 package com.homeverse.identity.service;
 
+import com.homeverse.identity.dto.request.ChangeEmailRequest;
 import com.homeverse.identity.dto.request.ChangePasswordRequest;
 import com.homeverse.identity.dto.request.LoginDTO;
 import com.homeverse.identity.dto.request.UserRegisterDTO;
@@ -12,6 +13,6 @@ public interface AuthService {
     void sendForgotPasswordEmail(String email);
     void resetPassword(String token, String newPassword);
     void changePassword(ChangePasswordRequest request);
-
+    void changeEmail(ChangeEmailRequest request);
 
 }

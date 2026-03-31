@@ -18,7 +18,7 @@ public class CustomerResponseDTO {
     private String avatarUrl;
     private String bannerUrl;
 
-    private String kycStatus; // Để frontend biết hiển thị badge "Đã xác minh" hay chưa
+    private String kycStatus;
 
     private LifestyleProfile lifestyleProfile;
 }

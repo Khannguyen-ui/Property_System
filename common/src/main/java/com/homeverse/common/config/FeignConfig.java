@@ -18,7 +18,7 @@ public class FeignConfig {
                 HttpServletRequest request = attributes.getRequest();
                 String authHeader = request.getHeader("Authorization");
 
-                // ĐIỂM QUAN TRỌNG: Chỉ copy header nếu nó tồn tại và có chữ "Bearer "
+
                 if (authHeader != null && authHeader.startsWith("Bearer ")) {
                     requestTemplate.header("Authorization", authHeader);
                 }

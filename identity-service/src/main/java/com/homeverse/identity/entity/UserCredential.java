@@ -27,9 +27,12 @@ public class UserCredential implements UserDetails {
     private String fullName;
     private String phone;
 
-    // QUAY LẠI DÙNG 1 ROLE DUY NHẤT
+
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Column(name = "kyc_status")
+    private String kycStatus;
 
     @Column(name = "is_active")
     private boolean isActive;
@@ -41,6 +44,9 @@ public class UserCredential implements UserDetails {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         isActive = true;
+        if (kycStatus == null) {
+            kycStatus = "UNVERIFIED";
+        }
     }
 
     @Override
@@ -54,6 +60,5 @@ public class UserCredential implements UserDetails {
     @Override public boolean isCredentialsNonExpired() { return true; }
     @Override public boolean isEnabled() { return isActive; }
 
-    // CHỈ CÒN 2 ROLE CƠ BẢN
-    public enum Role { ADMIN, USER }
+    public enum Role { ADMIN, USER, OWNER }
 }

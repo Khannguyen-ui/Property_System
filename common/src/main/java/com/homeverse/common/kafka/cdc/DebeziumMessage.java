@@ -8,5 +8,5 @@ import lombok.Data;
 public class DebeziumMessage<T> {
     private T before;
     private T after;
-    private String op; // c = create, u = update, d = delete
+    private String op;
 }

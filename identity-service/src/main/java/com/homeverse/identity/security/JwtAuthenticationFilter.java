@@ -39,7 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
 
-        // BỌC TRY-CATCH VÀO ĐÂY ĐỂ TRÁNH SẬP APP DO TOKEN RÁC
+
         try {
             String userEmail = jwtUtils.extractUsername(jwt);
 
@@ -57,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Token gửi đến Identity-Service bị hỏng hoặc hết hạn: " + e.getMessage());
+
         }
 
         filterChain.doFilter(request, response);

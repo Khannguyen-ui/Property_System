@@ -15,7 +15,7 @@ public class PasswordResetToken {
     @Column(nullable = false, unique = true)
     private String token;
 
-    // QUAN TRỌNG: Trỏ về UserCredential thay vì User cũ
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserCredential user;

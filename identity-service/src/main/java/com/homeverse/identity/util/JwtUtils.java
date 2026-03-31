@@ -17,7 +17,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    @Value("${jwt.secret:DayLaMotDoanBaoMatRatDaiChoHeThongHomeVerseCuaBan2026DeDungChoThuatToanHS256}")
+    @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration:86400000}")
@@ -39,9 +39,17 @@ public class JwtUtils {
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
 
-        // Lấy đúng 1 Role duy nhất ra (VD: "USER" hoặc "ADMIN")
+        // Lấy Role
         String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
         extraClaims.put("role", role);
+
+        // 🚨 QUAN TRỌNG: Nhét thêm userId vào Token
+        // Sếp phải ép kiểu cái userDetails về đúng cái Class Entity của sếp (VD: UserCredentials) để gọi hàm getId()
+        // Code mẫu (Sếp sửa lại tên Class "UserCredentials" cho đúng với code thực tế của sếp nhé):
+        /* if (userDetails instanceof UserCredentials) {
+            extraClaims.put("userId", ((UserCredentials) userDetails).getId());
+        }
+        */
 
         return generateToken(extraClaims, userDetails);
     }
@@ -77,7 +85,8 @@ public class JwtUtils {
                 .getBody();
     }
 
+
     private Key getSignInKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+        return Keys.hmacShaKeyFor(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 }

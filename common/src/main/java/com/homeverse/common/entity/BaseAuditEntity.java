@@ -11,14 +11,14 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-@MappedSuperclass // Đánh dấu đây là lớp cha, không tạo bảng riêng
+@MappedSuperclass
 @EntityListeners(AuditingEntityListener.class) // Lắng nghe sự kiện để tự chèn ngày
 @Getter
 @Setter
 public abstract class BaseAuditEntity {
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false) // Không cho phép cập nhật ngày tạo
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate

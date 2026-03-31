@@ -16,4 +16,4 @@ docker/db_data/  # Nếu bạn có map volume database
 # OS
 .DS_Store
 Thumbs.db
-echo .env >> .gitignore
+.env

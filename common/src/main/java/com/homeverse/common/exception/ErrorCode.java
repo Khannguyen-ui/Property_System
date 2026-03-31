@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatusCode;
 @Getter
 public enum ErrorCode {
     // === NHÓM LỖI HỆ THỐNG CHUNG (9xxx) ===
-    UNCATEGORIZED_EXCEPTION(9999, "Lỗi hệ thống không xác định", HttpStatus.INTERNAL_SERVER_ERROR),
+    UNCATEGORIZED_EXCEPTION(9999, "Hệ thống đang bận hoặc gặp sự cố, vui lòng thử lại sau!", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_KEY(1001, "Mã lỗi không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_REQUEST(1006, "Dữ liệu yêu cầu không hợp lệ", HttpStatus.BAD_REQUEST),
 
@@ -21,6 +21,8 @@ public enum ErrorCode {
     ACCOUNT_LOCKED(1102, "Tài khoản hiện đang bị khóa", HttpStatus.FORBIDDEN),
     KYC_NOT_VERIFIED(1103, "Tài khoản chưa được xác minh danh tính (KYC)", HttpStatus.FORBIDDEN),
     KYC_ALREADY_SUBMITTED(1104, "Hồ sơ KYC đã được gửi và đang chờ duyệt", HttpStatus.BAD_REQUEST),
+    TOKEN_INVALID(1011, "Mã xác thực không hợp lệ", HttpStatus.BAD_REQUEST),
+    TOKEN_EXPIRED(1012, "Mã xác thực đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // === NHÓM LỖI PROPERTY SERVICE (2xxx) ===
     PROPERTY_NOT_FOUND(2001, "Không tìm thấy bài đăng bất động sản", HttpStatus.NOT_FOUND),

@@ -13,16 +13,16 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    // BẮT BUỘC PHẢI GIỐNG HỆT SECRET KEY BÊN IDENTITY-SERVICE
-    @Value("${jwt.secret:DayLaMotDoanBaoMatRatDaiChoHeThongHomeVerseCuaBan2026DeDungChoThuatToanHS256}")
+
+    @Value("${jwt.secret}")
     private String secretKey;
 
-    // 1. Trích xuất Email (Subject)
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    // 2. Trích xuất Role để set quyền cho SecurityContext
+
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
     }
@@ -32,13 +32,11 @@ public class JwtUtils {
         return claimsResolver.apply(claims);
     }
 
-    // 3. Kiểm tra Token cơ bản (Dành cho Resource Server)
-    // Không cần check UserDetails trong DB, chỉ cần verify chữ ký và hạn sử dụng
+
     public boolean isTokenValidBasic(String token) {
         try {
             return !isTokenExpired(token);
         } catch (Exception e) {
-            System.err.println("Lỗi JWT: " + e.getMessage());
             return false;
         }
     }

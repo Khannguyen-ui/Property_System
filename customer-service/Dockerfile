@@ -8,7 +8,7 @@ WORKDIR /app
 # Ký tự * giúp tự động nhận diện tên file jar được sinh ra
 COPY target/*.jar app.jar
 
-# Khai báo port (chỉ mang tính chất document, mapping thực tế ở docker-compose)
+
 EXPOSE 8080
 
 # Chạy ứng dụng Spring Boot

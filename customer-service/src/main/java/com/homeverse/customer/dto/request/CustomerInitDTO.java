@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CustomerInitDTO {
-    private Long id; // Bắt buộc phải có để đồng bộ 1-1 với identity-service
+    private Long id;
     private String email;
     private String fullName;
     private String phone;

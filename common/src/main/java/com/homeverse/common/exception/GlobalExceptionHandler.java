@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 @ControllerAdvice
-@Slf4j // 🟢 Dùng để ghi log chuyên nghiệp
+@Slf4j
 public class GlobalExceptionHandler {
 
-    // 1. Bắt các lỗi nghiệp vụ do bạn chủ động ném ra
+
     @ExceptionHandler(value = AppException.class)
     public ResponseEntity<ApiResponse<Void>> handlingAppException(AppException exception) {
         ErrorCode errorCode = exception.getErrorCode();
@@ -25,11 +25,10 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-    // 2. 🔴 QUAN TRỌNG: Bắt lỗi phân quyền (Security Access Denied)
-    // Xảy ra khi Token hợp lệ nhưng Role không đủ quyền vào API
+
     @ExceptionHandler(value = AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handlingAccessDeniedException(AccessDeniedException exception) {
-        ErrorCode errorCode = ErrorCode.UNAUTHORIZED; // Trả về 403 Forbidden
+        ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
 
         return ResponseEntity
                 .status(errorCode.getStatusCode())
@@ -39,7 +38,6 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-    // 3. Bắt lỗi Validation (Dữ liệu đầu vào sai định dạng)
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handlingValidation(MethodArgumentNotValidException exception) {
         String enumKey = exception.getFieldError().getDefaultMessage();
@@ -59,11 +57,11 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-    // 4. "Cái lưới cuối cùng": Bắt tất cả lỗi hệ thống chưa lường trước được
+
     @ExceptionHandler(value = Exception.class)
     public ResponseEntity<ApiResponse<Void>> handlingRuntimeException(Exception exception) {
-        // 🟢 Ghi log chi tiết lỗi ra file/console để Dev vào kiểm tra
-        log.error("Hệ thống gặp lỗi nghiêm trọng: ", exception);
+
+        log.error("Thao tác không hợp lệ: ", exception);
 
         return ResponseEntity
                 .status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatusCode())
@@ -71,5 +69,17 @@ public class GlobalExceptionHandler {
                         .code(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode())
                         .message(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage())
                         .build());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
+
+        
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(400)
+                .message(e.getMessage())
+                .build();
+
+        return ResponseEntity.badRequest().body(response);
     }
 }

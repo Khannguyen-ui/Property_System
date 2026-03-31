@@ -21,6 +21,8 @@
         <module>identity-service</module>
         <module>property-service</module>
         <module>customer-service</module>
+        <module>media-service</module>
+        <module>notification-service</module>
     </modules>
 
     <properties>

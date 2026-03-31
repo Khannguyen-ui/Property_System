@@ -19,7 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtUtils jwtUtils; // (Copy y nguyên file JwtUtils từ identity-service sang đây)
+    private final JwtUtils jwtUtils;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -35,7 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String role = jwtUtils.extractRole(jwt); // Lấy Role từ token
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                // Xác thực hợp lệ (Token chưa hết hạn và chữ ký đúng)
+
                 if (jwtUtils.isTokenValidBasic(jwt)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userEmail, null, List.of(new SimpleGrantedAuthority("ROLE_" + role))
@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Token không hợp lệ: " + e.getMessage());
+
         }
         filterChain.doFilter(request, response);
     }

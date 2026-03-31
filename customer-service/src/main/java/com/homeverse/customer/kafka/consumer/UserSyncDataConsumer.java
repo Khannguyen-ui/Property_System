@@ -13,6 +13,10 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -25,33 +29,29 @@ public class UserSyncDataConsumer {
     @Transactional
     public void consume(String message) {
         try {
-            // 1. Đọc String thành Cây JSON
             JsonNode rootNode = objectMapper.readTree(message);
-
-            // 2. Lột vỏ "payload" (nếu có) để lấy đúng phần lõi dữ liệu
             JsonNode payloadNode = rootNode.has("payload") ? rootNode.get("payload") : rootNode;
 
-
-            // 3. Map cái lõi đó vào class DebeziumMessage của bạn
             DebeziumMessage<UserCdcMessage> debeziumMessage = objectMapper.convertValue(
                     payloadNode,
                     new TypeReference<DebeziumMessage<UserCdcMessage>>() {}
             );
 
-            // Bỏ qua các tín hiệu rác
             if (debeziumMessage == null || debeziumMessage.getOp() == null) return;
 
             String operation = debeziumMessage.getOp();
             UserCdcMessage payload = debeziumMessage.getAfter();
 
-            // Khi một User mới được tạo (op = 'c') hoặc được đồng bộ lần đầu (op = 'r')
-            if (("c".equals(operation) || "r".equals(operation)) && payload != null) {
-                log.info(" BẮT ĐƯỢC TÀI KHOẢN TỪ IDENTITY: ID={}, Name={}, Email={}",
-                        payload.getId(), payload.getFullName(), payload.getEmail());
 
+            if (("c".equals(operation) || "r".equals(operation)) && payload != null) {
                 if (!customerRepository.existsById(payload.getId())) {
+
+
+                    String generatedSlug = generateSlug(payload.getFullName());
+
                     Customer newCustomer = Customer.builder()
                             .id(payload.getId())
+                            .publicId(generatedSlug)
                             .email(payload.getEmail())
                             .fullName(payload.getFullName())
                             .phone(payload.getPhone())
@@ -59,13 +59,52 @@ public class UserSyncDataConsumer {
                             .build();
 
                     customerRepository.save(newCustomer);
-                    log.info("Đã tạo hồ sơ Customer thành công!");
-                } else {
-                    log.info("Customer ID={} đã tồn tại, bỏ qua tạo mới.", payload.getId());
+                    log.info("🎉 Đã tạo hồ sơ rỗng cho Customer ID: {}", payload.getId());
                 }
             }
+
+            if ("u".equals(operation) && payload != null) {
+                customerRepository.findById(payload.getId()).ifPresent(customer -> {
+                    boolean isChanged = false;
+
+                    // Nếu User đổi Email bên Identity, đồng bộ sang đây
+                    if (payload.getEmail() != null && !payload.getEmail().equals(customer.getEmail())) {
+                        customer.setEmail(payload.getEmail());
+                        isChanged = true;
+                        log.info(" Đồng bộ đổi Email cho Customer ID: {}", payload.getId());
+                    }
+
+                    // Nếu Admin duyệt/từ chối KYC bằng tay bên Identity, đồng bộ trạng thái về đây
+                    if (payload.getKycStatus() != null && !payload.getKycStatus().equals(customer.getKycStatus())) {
+                        customer.setKycStatus(payload.getKycStatus());
+                        isChanged = true;
+                        log.info(" Đồng bộ KYC Status thành [{}] cho Customer ID: {}", payload.getKycStatus(), payload.getId());
+                    }
+
+                    if (isChanged) {
+                        customerRepository.save(customer);
+                    }
+                });
+            }
+
         } catch (Exception e) {
-            log.error("Lỗi khi xử lý thông điệp CDC: {}", e.getMessage(), e);
+            log.error(" Lỗi khi xử lý thông điệp CDC: {}", e.getMessage(), e);
         }
+    }
+
+
+    private String generateSlug(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return UUID.randomUUID().toString().substring(0, 10);
+        }
+        String slug = name.replace("đ", "d").replace("Đ", "D");
+        String normalized = Normalizer.normalize(slug, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        slug = pattern.matcher(normalized).replaceAll("");
+        slug = slug.toLowerCase();
+        slug = slug.replaceAll("[^a-z0-9]+", "-");
+        slug = slug.replaceAll("^-|-$", "");
+        String randomTail = UUID.randomUUID().toString().substring(0, 5);
+        return slug + "-" + randomTail;
     }
 }

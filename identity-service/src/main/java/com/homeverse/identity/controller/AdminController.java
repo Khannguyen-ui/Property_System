@@ -1,10 +1,13 @@
 package com.homeverse.identity.controller;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.identity.entity.UserCredential;
 import com.homeverse.identity.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/admin/users")
@@ -36,6 +39,32 @@ public class AdminController {
         adminService.deleteUser(id);
         return ApiResponse.<String>builder()
                 .result("Đã xóa vĩnh viễn tài khoản khỏi hệ thống.")
+                .build();
+    }
+    @GetMapping("/kyc/pending")
+    public ApiResponse<List<UserCredential>> getPendingKycUsers() {
+        return ApiResponse.<List<UserCredential>>builder()
+                .result(adminService.getPendingKycUsers())
+                .build();
+    }
+
+    @PutMapping("/{id}/kyc/approve")
+    public ApiResponse<String> approveUserKyc(@PathVariable("id") Long id) {
+        adminService.approveKyc(id);
+        return ApiResponse.<String>builder()
+                .result("Đã duyệt hồ sơ KYC thành công cho User ID: " + id)
+                .build();
+    }
+
+
+    @PutMapping("/{id}/kyc/reject")
+    public ApiResponse<String> rejectUserKyc(
+            @PathVariable("id") Long id,
+            @RequestParam("reason") String reason) {
+
+        adminService.rejectKyc(id, reason);
+        return ApiResponse.<String>builder()
+                .result("Đã từ chối hồ sơ KYC. Lý do: " + reason)
                 .build();
     }
 }

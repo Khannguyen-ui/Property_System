@@ -13,4 +13,6 @@ public class UserCdcMessage {
     private String fullName;
     private String phone;
     private String role;
+    @JsonProperty("kyc_status")
+    private String kycStatus;
 }

@@ -14,7 +14,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     Optional<PasswordResetToken> findByToken(String token);
 
-    // Cần thêm @Modifying để Spring Data JPA biết đây là lệnh xóa (thay đổi dữ liệu)
+
     @Modifying
     @Query("DELETE FROM PasswordResetToken t WHERE t.user = :user")
     void deleteByUser(UserCredential user);
