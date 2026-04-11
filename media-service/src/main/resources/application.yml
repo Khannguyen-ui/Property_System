@@ -1,0 +1,15 @@
+server:
+  port: 8084 # Chạy cổng riêng cho Media
+  servlet:
+    multipart:
+      max-file-size: 10MB # Giới hạn size ảnh
+      max-request-size: 10MB
+
+spring:
+  application:
+    name: media-service
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key:    ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}

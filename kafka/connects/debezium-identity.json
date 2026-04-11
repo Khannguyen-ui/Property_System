@@ -1,0 +1,29 @@
+{
+  "name": "identity-db-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+
+    "database.hostname": "postgres-identity",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "123456",
+    "database.dbname": "identity_db",
+
+    "topic.prefix": "identity_server",
+
+    "table.include.list": "public.user_credentials",
+    "schema.include.list": "public",
+
+    "plugin.name": "pgoutput",
+
+    "snapshot.mode": "initial",
+
+    "slot.name": "identity_v1",
+    "publication.name": "identity_pub",
+    "publication.autocreate.mode": "all_tables",
+
+    "slot.drop.on.stop": "true",
+    "database.sslmode": "disable"
+  }
+}

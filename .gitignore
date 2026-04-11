@@ -1,0 +1,19 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Docker & Logs
+*.log
+docker/db_data/  # Nếu bạn có map volume database
+
+# OS
+.DS_Store
+Thumbs.db
+.env

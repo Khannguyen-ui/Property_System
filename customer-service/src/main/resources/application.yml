@@ -1,0 +1,37 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: customer-service
+  datasource:
+    # Sửa localhost thành tên container postgres-customer
+    url: "jdbc:postgresql://${CUSTOMER_DB_HOST:postgres-customer}:5432/customer_db"
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:123456}
+    driver-class-name: org.postgresql.Driver
+  
+  kafka:
+    # Sửa localhost thành kafka:29092 (port nội bộ của Kafka trong docker)
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    consumer:
+      group-id: customer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+  
+  data:
+    redis:
+      # QUAN TRỌNG: Sửa localhost thành redis-customer
+      host: ${REDIS_HOST:redis-customer}
+      port: ${REDIS_PORT:6379}
+
+app:
+  services:
+    # Sửa link media service sang tên container
+    media-url: ${MEDIA_SERVICE_URL:http://media-service:8084}
+
+jwt:
+  secret: ${JWT_SECRET}
