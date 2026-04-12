@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/media")
@@ -24,6 +25,17 @@ public class MediaController {
 
         return ApiResponse.<String>builder()
                 .result(imageUrl)
+                .build();
+    }
+    @PostMapping("/upload-multiple")
+    public ApiResponse<List<String>> uploadMultipleFiles(
+            @RequestParam("files") List<MultipartFile> files, // Chú ý: "files" số nhiều
+            @RequestParam(value = "folder", defaultValue = "properties") String folder) { // Đổi mặc định thành properties
+
+        List<String> imageUrls = mediaService.uploadImages(files, folder);
+
+        return ApiResponse.<List<String>>builder()
+                .result(imageUrls)
                 .build();
     }
 }

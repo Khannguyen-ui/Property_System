@@ -10,16 +10,13 @@ spring:
       group-id: notification-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      # Sửa dòng này từ String sang JsonDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        # Thêm dòng này để Spring tin tưởng các package chứa DTO của Ân
-        spring.json.trusted.packages: "com.homeverse.*,com.smartrental.*"
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
   datasource:
+
     url: "jdbc:postgresql://${NOTIFICATION_DB_HOST:localhost}:5432/notification_db"
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}

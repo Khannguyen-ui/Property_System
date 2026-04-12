@@ -1,5 +1,5 @@
 # Bước 1: Sử dụng JRE 21 bản Alpine để chạy ứng dụng (nhẹ và bảo mật)
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 # Bước 2: Thiết lập thư mục làm việc bên trong container
 WORKDIR /app

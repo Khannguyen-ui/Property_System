@@ -39,17 +39,7 @@ public class JwtUtils {
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
 
-        // Lấy Role
-        String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
-        extraClaims.put("role", role);
 
-        // 🚨 QUAN TRỌNG: Nhét thêm userId vào Token
-        // Sếp phải ép kiểu cái userDetails về đúng cái Class Entity của sếp (VD: UserCredentials) để gọi hàm getId()
-        // Code mẫu (Sếp sửa lại tên Class "UserCredentials" cho đúng với code thực tế của sếp nhé):
-        /* if (userDetails instanceof UserCredentials) {
-            extraClaims.put("userId", ((UserCredentials) userDetails).getId());
-        }
-        */
 
         return generateToken(extraClaims, userDetails);
     }

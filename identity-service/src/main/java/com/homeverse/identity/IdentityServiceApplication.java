@@ -18,14 +18,14 @@ import java.net.UnknownHostException;
 @EntityScan(basePackages = {"com.homeverse.identity.entity", "com.homeverse.common.entity"})
 @EnableJpaAuditing
 @EnableFeignClients
-@Slf4j // Thêm cái này để dùng log.info, log.error...
+@Slf4j
 public class IdentityServiceApplication {
 
     public static void main(String[] args) throws UnknownHostException {
         SpringApplication app = new SpringApplication(IdentityServiceApplication.class);
         Environment env = app.run(args).getEnvironment();
 
-        // Log ra thông tin rực rỡ khi khởi động thành công
+
         String protocol = "http";
         if (env.getProperty("server.ssl.key-store") != null) {
             protocol = "https";

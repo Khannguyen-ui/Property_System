@@ -32,9 +32,9 @@ public class PropertyRequestDTO {
     private Integer numBedrooms;
     private Integer numBathrooms;
 
-    private Property.RentalType rentalType;
+
     private Integer capacity;
-    private Property.GenderConstraint genderConstraint;
+
 
     private List<String> images;
     private String videoUrl;

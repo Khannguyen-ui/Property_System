@@ -1,75 +1,99 @@
 package com.homeverse.property.repository;
 
 import com.homeverse.property.entity.Property;
-import org.locationtech.jts.geom.Point;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
 public interface PropertyRepository extends JpaRepository<Property, Long> {
 
-    List<Property> findByStatus(Property.Status status);
+
+    @Query(value = "SELECT * FROM properties WHERE id = :id AND status = 'DELETED'", nativeQuery = true)
+    Optional<Property> findDeletedById(@Param("id") Long id);
+
+
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM properties WHERE id = :id", nativeQuery = true)
+    void hardDeleteById(@Param("id") Long id);
+
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = :id", nativeQuery = true)
+    void restoreById(@Param("id") Long id);
+
+
+
+    @Query(
+            value = "SELECT * FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'",
+            countQuery = "SELECT count(*) FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'",
+            nativeQuery = true
+    )
+    org.springframework.data.domain.Page<Property> findDeletedByOwnerId(
+            @Param("ownerId") Long ownerId,
+            org.springframework.data.domain.Pageable pageable
+    );
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "UPDATE properties SET project_id = NULL WHERE project_id = :projectId", nativeQuery = true)
+    void detachPropertiesFromProject(@Param("projectId") Long projectId);
     Page<Property> findByStatus(Property.Status status, Pageable pageable);
-    List<Property> findByLandlordId(Long landlordId);
-    Page<Property> findByLandlordId(Long landlordId, Pageable pageable);
-    Optional<Property> findByIdAndLandlordId(Long id, Long landlordId);
-    int countByLandlordId(Long landlordId);
-
-    // 1. TÌM KIẾM QUANH ĐÂY (Giữ nguyên logic cực xịn của bạn)
-    @Query(value = "SELECT p.* FROM properties p " +
-            "WHERE p.status = 'ACTIVE' " +
-            "AND ST_DWithin(p.location\\:\\:geography, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)\\:\\:geography, :radius) " +
-            "AND (:keyword IS NULL OR :keyword = '' OR " +
-            "p.search_vector @@ plainto_tsquery('simple', lower(:keyword))) " +
-            "ORDER BY (CASE WHEN p.expiration_date >= NOW() THEN COALESCE(p.priority_level, 0) ELSE 0 END) DESC, " +
-            "p.created_at DESC",
-            countQuery = "SELECT count(*) FROM properties p " +
-                    "WHERE p.status = 'ACTIVE' " +
-                    "AND ST_DWithin(p.location\\:\\:geography, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)\\:\\:geography, :radius) " +
-                    "AND (:keyword IS NULL OR :keyword = '' OR " +
-                    "p.search_vector @@ plainto_tsquery('simple', lower(:keyword)))",
+    Optional<Property> findByIdAndStatus(Long id, Property.Status status);
+    // 1. Lấy toàn bộ thùng rác (Bất chấp của ai)
+    @Query(value = "SELECT * FROM properties WHERE status = 'DELETED'",
+            countQuery = "SELECT count(*) FROM properties WHERE status = 'DELETED'",
             nativeQuery = true)
-    Page<Property> findPropertiesNearby(@Param("latitude") double latitude,
-                                        @Param("longitude") double longitude,
-                                        @Param("radius") double radiusInMeters,
-                                        @Param("keyword") String keyword,
-                                        Pageable pageable);
+    Page<Property> findAllDeletedProperties(Pageable pageable);
 
-    // 2. TÍNH TOÁN THỐNG KÊ GIÁ (Dành cho Background Job)
-    @Query(value = "SELECT " +
-            "  CAST(MIN(price) AS NUMERIC) as min_p, " +
-            "  CAST(AVG(price) AS NUMERIC) as avg_p, " +
-            "  CAST(MAX(price) AS NUMERIC) as max_p " +
-            "FROM properties " +
-            "WHERE status = 'ACTIVE' " +
-            "AND rental_type = :rentalType " +
-            "AND ST_DistanceSphere(location, :centerPoint) <= :radius",
-            nativeQuery = true)
-    Map<String, Object> calculateStatsAroundPoint(
-            @Param("centerPoint") Point centerPoint,
-            @Param("radius") double radiusInMeters,
-            @Param("rentalType") String rentalType);
+    // 2. Khôi phục bài đăng (Admin - Khôi phục về trạng thái PENDING để xem xét lại)
+    @Modifying
+    @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
+    int restoreByIdAdmin(Long id);
 
-    // 3. CÁC TRUY VẤN MEDIA VÀ ĐỊA CHỈ
-    @Query("SELECT p FROM Property p WHERE p.videoUrl IS NOT NULL AND p.status = 'ACTIVE'")
-    Page<Property> findAllWithVideo(Pageable pageable);
+    // 3. Tiễn vĩnh viễn (Admin)
+    @Modifying
+    @Query(value = "DELETE FROM properties WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
+    int hardDeleteByIdAdmin(Long id);
 
-    @Query("SELECT p.addressDetail FROM Property p WHERE p.landlordId = :landlordId")
-    List<String> findAddressesByLandlordId(@Param("landlordId") Long landlordId);
+    // Bài đăng thuộc về
+    // Cập nhật đồng loạt Snapshot của chủ nhà cho tất cả bài đăng
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Property p SET p.ownerNameSnapshot = :name, p.ownerAvatarSnapshot = :avatar, p.ownerSlugSnapshot = :slug WHERE p.ownerId = :ownerId")
+    void updateOwnerSnapshot(
+            @Param("ownerId") Long ownerId,
+            @Param("name") String name,
+            @Param("avatar") String avatar,
+            @Param("slug") String slug
+    );
 
-    // 4. CRONJOB (Tin sắp hết hạn và đã quá hạn)
-    @Query("SELECT p FROM Property p WHERE p.status = 'ACTIVE' AND p.expirationDate <= :targetDate AND p.expirationDate > CURRENT_TIMESTAMP")
-    List<Property> findExpiringSoon(@Param("targetDate") LocalDateTime targetDate);
+    // 1. Dành cho màn hình lướt Video (Chỉ lấy bài ACTIVE và CÓ VIDEO)
 
-    @Query("SELECT p FROM Property p WHERE p.status = 'ACTIVE' AND p.expirationDate <= :now")
-    List<Property> findAllExpiredActiveProperties(@Param("now") LocalDateTime now);
+    @Query(value = """
+    SELECT * FROM property p 
+    WHERE p.status = :status 
+      AND p.video_url IS NOT NULL 
+      AND p.video_url != ''
+      AND (:lastCreatedAt IS NULL 
+           OR p.created_at < :lastCreatedAt 
+           OR (p.created_at = :lastCreatedAt AND p.id < :lastId))
+    ORDER BY p.created_at DESC, p.id DESC
+    FETCH FIRST :limit ROWS ONLY
+    """, nativeQuery = true)
+    List<Property> findReelsFeed(
+            @Param("status") Property.Status status,
+            @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
+            @Param("lastId") Long lastId,
+            @Param("limit") int limit);
+    // 2. Dành cho màn hình Xem trang cá nhân (Lấy tất cả bài của 1 User)
+    org.springframework.data.domain.Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(Long ownerId, Property.Status status, org.springframework.data.domain.Pageable pageable);
+
+
 }

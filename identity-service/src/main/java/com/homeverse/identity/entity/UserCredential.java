@@ -12,16 +12,20 @@ import java.util.List;
 
 @Entity
 @Table(name = "user_credentials")
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserCredential implements UserDetails {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private String password;
 
     private String fullName;
@@ -40,12 +44,18 @@ public class UserCredential implements UserDetails {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "free_posts_remaining")
+    private Integer freePostsRemaining;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         isActive = true;
         if (kycStatus == null) {
             kycStatus = "UNVERIFIED";
+        }
+        if (freePostsRemaining == null) {
+            freePostsRemaining = 8;
         }
     }
 
@@ -54,11 +64,30 @@ public class UserCredential implements UserDetails {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
-    @Override public String getUsername() { return email; }
-    @Override public boolean isAccountNonExpired() { return true; }
-    @Override public boolean isAccountNonLocked() { return true; }
-    @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled() { return isActive; }
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return isActive;
+    }
 
     public enum Role { ADMIN, USER, OWNER }
 }

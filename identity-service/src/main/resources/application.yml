@@ -4,26 +4,11 @@ server:
 spring:
   application:
     name: identity-service
-  
-  # --- THÊM ĐOẠN OAUTH2 NÀY VÀO ĐỂ FIX LỖI CRASH ---
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - email
-              - profile
-  # -----------------------------------------------
-
   datasource:
-    url: jdbc:postgresql://${IDENTITY_DB_HOST:postgres-identity}:5432/identity_db
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:123456}
+    url: "jdbc:postgresql://${IDENTITY_DB_HOST:localhost}:5432/identity_db"
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  
   jpa:
     hibernate:
       ddl-auto: update
@@ -33,7 +18,6 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  
   mail:
     host: smtp.gmail.com
     port: 587
@@ -45,10 +29,9 @@ spring:
           auth: true
           starttls:
             enable: true
-            
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-
 jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000

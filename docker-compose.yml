@@ -24,12 +24,14 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     networks:
       - homeverse-network
 
-  redis-customer:
+  redis:
     image: redis:alpine
-    container_name: redis-customer
+    container_name: redis
     ports:
       - "6379:6379"
     networks:
@@ -43,7 +45,7 @@ services:
     env_file:
       - .env
     environment:
-      BOOTSTRAP_SERVERS: kafka:29092
+      BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       GROUP_ID: 1
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
@@ -83,6 +85,7 @@ services:
       POSTGRES_DB: customer_db
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c wal_level=logical
     networks:
       - homeverse-network
     volumes:
@@ -101,19 +104,26 @@ services:
       - homeverse-network
     volumes:
       - notification-db-data:/var/lib/postgresql/data
+  postgres-property:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: postgres-property
 
   postgres-payment:
     image: postgres:16-alpine
     container_name: postgres-payment
     ports:
+      - "${POSTGRES_PROPERTY_PORT:-5435}:5432"
       - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
     environment:
+      POSTGRES_DB: property_db
       POSTGRES_DB: payment_db
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - homeverse-network
     volumes:
+      - property-db-data:/var/lib/postgresql/data
+  # 2. MICROSERVICES
       - payment-db-data:/var/lib/postgresql/data
 
   identity-service:
@@ -125,12 +135,11 @@ services:
       - "8081:8081"
     depends_on:
       - postgres-identity
+      - kafka
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-identity:5432/identity_db
-      - JWT_SECRET=${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: docker
     networks:
       - homeverse-network
 
@@ -147,11 +156,7 @@ services:
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-customer:5432/customer_db
-      - CUSTOMER_DB_HOST=postgres-customer
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - MEDIA_SERVICE_URL=http://media-service:8084
+      SPRING_PROFILES_ACTIVE: docker
     networks:
       - homeverse-network
 
@@ -176,29 +181,36 @@ services:
       - "8085:8085"
     depends_on:
       - kafka
-      - redis-customer
+      - redis
       - postgres-notification
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-notification:5432/notification_db
+      SPRING_PROFILES_ACTIVE: docker
     networks:
       - homeverse-network
+  property-service:
 
   payment-service:
     build:
+      context: ./property-service
       context: ./payment-service
       dockerfile: Dockerfile
+    container_name: property-service
     container_name: payment-service
     ports:
       - "8086:8086"
     depends_on:
       - kafka
+      - postgres-property
+      - identity-service
+      - redis
+
       - postgres-payment
     env_file:
       - .env
     environment:
+      SPRING_PROFILES_ACTIVE: docker
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payment:5432/payment_db
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -215,6 +227,7 @@ services:
     depends_on:
       - identity-service
       - customer-service
+      - property-service
       - payment-service
     networks:
       - homeverse-network
@@ -227,4 +240,5 @@ volumes:
   identity-db-data-v2:
   customer-db-data:
   notification-db-data:
+  property-db-data:
   payment-db-data:
