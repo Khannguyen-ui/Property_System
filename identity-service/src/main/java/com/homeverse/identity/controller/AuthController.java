@@ -1,12 +1,18 @@
 package com.homeverse.identity.controller;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.common.exception.AppException;
+import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.identity.dto.request.*;
 import com.homeverse.identity.dto.response.AuthResponse;
 import com.homeverse.identity.dto.response.UserResponseDTO;
 import com.homeverse.identity.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,6 +35,31 @@ public class AuthController {
                 .result(authService.login(loginDTO))
                 .build();
     }
+ @GetMapping("/login-success")
+public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
+    // 1. Kiểm tra xác thực
+    if (authentication == null || !(authentication.getPrincipal() instanceof OAuth2User oAuth2User)) {
+        throw new AppException(ErrorCode.UNAUTHENTICATED);
+    }
+
+    // 2. Lấy email từ Google
+    String email = oAuth2User.getAttribute("email");
+if (email == null) {
+    // Facebook đăng ký bằng SĐT sẽ không có email, dùng ID để tạo định danh khớp với DB
+    String fbId = oAuth2User.getAttribute("id");
+    email = fbId + "@facebook.com";
+}
+    System.out.println(">>> OAuth2 Login thành công cho: " + email);
+
+    // 3. Gọi Service để lấy đủ Token và thông tin User từ DB
+    AuthResponse response = authService.generateTokenForOAuth2(email);
+
+    return ApiResponse.<AuthResponse>builder()
+            .code(1000)
+            .result(response)
+            .build();
+}
+    // === BỔ SUNG 2 HÀM CÒN THIẾU Ở ĐÂY ===
 
     @PostMapping("/forgot-password")
     public ApiResponse<String> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {

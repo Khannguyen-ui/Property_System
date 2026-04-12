@@ -10,6 +10,7 @@ import com.homeverse.identity.dto.response.UserResponseDTO;
 public interface AuthService {
     UserResponseDTO register(UserRegisterDTO registerDTO);
     AuthResponse login(LoginDTO loginDTO);
+    AuthResponse generateTokenForOAuth2(String email);
     void sendForgotPasswordEmail(String email);
     void resetPassword(String token, String newPassword);
     void changePassword(ChangePasswordRequest request);

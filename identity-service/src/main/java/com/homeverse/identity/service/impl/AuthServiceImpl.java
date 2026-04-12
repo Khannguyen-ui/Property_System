@@ -218,4 +218,21 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getNewEmail());
         userRepository.save(user);
     }
+   @Override
+public AuthResponse generateTokenForOAuth2(String email) {
+    // Tìm trong DB
+    var user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("KHONG TIM THAY USER TRONG DB: " + email));
+
+    // Tạo token (Đảm bảo jwtUtils đã được @RequiredArgsConstructor tiêm vào)
+    String jwtToken = jwtUtils.generateToken(user);
+
+    return AuthResponse.builder()
+            .token(jwtToken)
+            .id(user.getId())
+            .email(user.getEmail())
+            .fullName(user.getFullName())
+            .role(user.getRole().name())
+            .build();
+}
 }

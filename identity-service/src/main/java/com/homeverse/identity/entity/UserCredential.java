@@ -89,5 +89,5 @@ public class UserCredential implements UserDetails {
         return isActive;
     }
 
-    public enum Role {ADMIN, USER, OWNER}
+    public enum Role { ADMIN, USER, OWNER }
 }
