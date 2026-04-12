@@ -30,9 +30,9 @@ services:
     networks:
       - homeverse-network
 
-  redis-customer:
+  redis:
     image: redis:alpine
-    container_name: redis-customer
+    container_name: redis
     ports:
       - "6379:6379"
     networks:
@@ -87,6 +87,7 @@ services:
       POSTGRES_DB: customer_db
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c wal_level=logical
     networks:
       - homeverse-network
     volumes:
@@ -105,7 +106,20 @@ services:
       - homeverse-network
     volumes:
       - notification-db-data:/var/lib/postgresql/data
-
+  postgres-property:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: postgres-property
+    ports:
+      - "${POSTGRES_PROPERTY_PORT:-5435}:5432"
+    environment:
+      POSTGRES_DB: property_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c wal_level=logical
+    networks:
+      - homeverse-network
+    volumes:
+      - property-db-data:/var/lib/postgresql/data
   # 2. MICROSERVICES
   identity-service:
     build:
@@ -116,6 +130,7 @@ services:
       - "8081:8081"
     depends_on:
       - postgres-identity
+      - kafka
     env_file:
       - .env
     environment:
@@ -161,8 +176,27 @@ services:
       - "8085:8085"
     depends_on:
       - kafka
-      - redis-customer
+      - redis
       - postgres-notification
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - homeverse-network
+  property-service:
+    build:
+      context: ./property-service
+      dockerfile: Dockerfile
+    container_name: property-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - kafka
+      - postgres-property
+      - identity-service
+      - redis
+
     env_file:
       - .env
     environment:
@@ -181,6 +215,7 @@ services:
     depends_on:
       - identity-service
       - customer-service
+      - property-service
     networks:
       - homeverse-network
 
@@ -192,3 +227,4 @@ volumes:
   identity-db-data-v2:
   customer-db-data:
   notification-db-data:
+  property-db-data:

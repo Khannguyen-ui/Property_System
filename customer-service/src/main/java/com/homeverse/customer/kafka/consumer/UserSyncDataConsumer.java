@@ -59,7 +59,7 @@ public class UserSyncDataConsumer {
                             .build();
 
                     customerRepository.save(newCustomer);
-                    log.info("🎉 Đã tạo hồ sơ rỗng cho Customer ID: {}", payload.getId());
+                    log.info("Đã tạo hồ sơ rỗng cho Customer ID: {}", payload.getId());
                 }
             }
 
@@ -74,7 +74,7 @@ public class UserSyncDataConsumer {
                         log.info(" Đồng bộ đổi Email cho Customer ID: {}", payload.getId());
                     }
 
-                    // Nếu Admin duyệt/từ chối KYC bằng tay bên Identity, đồng bộ trạng thái về đây
+
                     if (payload.getKycStatus() != null && !payload.getKycStatus().equals(customer.getKycStatus())) {
                         customer.setKycStatus(payload.getKycStatus());
                         isChanged = true;

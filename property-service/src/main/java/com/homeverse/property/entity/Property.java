@@ -2,152 +2,163 @@ package com.homeverse.property.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import org.locationtech.jts.geom.Point; // Yêu cầu thư viện hibernate-spatial
-
+import org.locationtech.jts.geom.Point;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.SQLDelete;
+
 
 @Entity
 @Table(name = "properties")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@SQLDelete(sql = "UPDATE properties SET status = 'DELETED' WHERE id = ?")
+@SQLRestriction("status <> 'DELETED'")
+@DynamicUpdate
 public class Property {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // --- CẢI TIẾN MICROSERVICES: Lưu ID thay vì Object ---
-    @Column(name = "landlord_id", nullable = false)
-    private Long landlordId;
+    @Column(name = "is_quota_deducted", nullable = false)
+    @Builder.Default
+    private boolean isQuotaDeducted = false;
 
-    @Column(name = "service_package_id")
-    private Long servicePackageId;
+    @Column(name = "project_id")
+    private Long projectId;
 
-    // ---------------------------------------------------
+    @Column(name = "project_name_snapshot")
+    private String projectNameSnapshot;
 
     private String title;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "search_vector", columnDefinition = "tsvector", insertable = false, updatable = false)
-    private String searchVector;
+    private BigDecimal price;
+    private Double area;
 
-    private BigDecimal price; // Giá hiển thị
-    private BigDecimal deposit; // Tiền cọc
 
-    private Double area;      // Diện tích
+    private String address;
 
-    // Tách địa chỉ rõ ràng để dễ filter
-    private String province;
-    private String district;
-    private String ward;
-    private String addressDetail;
 
-    @Column(name = "auto_renew")// Gia hạn tin
-    private Boolean autoRenew = false;
-
-    @Column(name = "last_pushed_at")
-    private LocalDateTime lastPushedAt; // Thời gian đẩy tin
-
-    @Column(name = "approved_at")
-    private LocalDateTime approvedAt;
-
-    @Column(name = "furniture_status")
-    private String furnitureStatus; // VD: "Nội thất đầy đủ", "Cơ bản", "Nhà trống"
-
-    @Column(name = "package_type")
-    private String packageType;    // Lưu tên gói: "Hội viên Vàng", "VIP"...
-
-    @Column(name = "priority_level")
-    private Integer priorityLevel;
-
-    @Column(name = "legal_status")
-    private String legalStatus; // VD: "Đã có sổ", "Đang chờ sổ"
-
-    private String direction; // VD: "Đông Nam", "Tây Bắc"
-
-    @Column(name = "floor_number")
-    private Integer floorNumber; // Tầng mấy
-
-    @Column(name = "num_bedrooms")
-    private Integer numBedrooms;
-
-    @Column(name = "num_bathrooms")
-    private Integer numBathrooms;
-
-    // --- CORE HYBRID LOGIC ---
-    @Enumerated(EnumType.STRING)
-    private RentalType rentalType; // WHOLE (Nguyên căn) - SHARED (Ở ghép)
-
-    private Integer capacity; // Tổng chỗ (VD: 1 hoặc 8)
-
-    @Builder.Default
-    @Column(name = "current_tenants")
-    private Integer currentTenants = 0; // Số người đang ở
-
-    @Enumerated(EnumType.STRING)
-    private GenderConstraint genderConstraint; // MALE_ONLY, FEMALE_ONLY, MIXED
-
-    // --- GIS & MEDIA ---
     @Column(columnDefinition = "geometry(Point, 4326)")
-    private Point location; // Tọa độ bản đồ Google Maps
+    private Point location;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "property_type")
+    private PropertyType propertyType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transaction_type")
+    private TransactionType transactionType;
+
+    private Integer capacity;
+
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<String> images;
 
-    @Column(name = "video_url", columnDefinition = "TEXT")
+    @Column(name = "video_url")
     private String videoUrl;
 
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "amenities", columnDefinition = "jsonb")
     private List<String> amenities;
 
-    // --- TRẠNG THÁI & THỐNG KÊ ---
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @Column(name = "expiration_date")
-    private LocalDateTime expirationDate; // Ngày hết hạn tin đăng
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
 
-    @Column(name = "promotion_expiration")
-    private LocalDateTime promotionExpiration;
+    @Column(name = "owner_name_snapshot")
+    private String ownerNameSnapshot;
 
-    @Builder.Default
-    @Column(name = "average_rating")
-    private Double averageRating = 0.0;
+    @Column(name = "owner_avatar_snapshot")
+    private String ownerAvatarSnapshot;
 
-    @Builder.Default
-    @Column(name = "total_reviews")
-    private Integer totalReviews = 0;
 
-    @Column(name = "created_at")
+    @Column(name = "owner_slug_snapshot")
+    private String ownerSlugSnapshot;
+
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
         if (status == null) status = Status.PENDING;
+        if (expiresAt == null) expiresAt = createdAt.plusDays(30);
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    private Integer bedrooms;   // Số phòng ngủ
+    private Integer bathrooms;  // Số phòng vệ sinh
+    private Boolean hasBalcony; // Có ban công
+
+
+
+    @Enumerated(EnumType.STRING)
+    private FurnishingStatus furnishingStatus; // Tình trạng nội thất
+
+    @Enumerated(EnumType.STRING)
+    private AvailabilityStatus availabilityStatus; // Thời gian vào ở
+
+    @Enumerated(EnumType.STRING)
+    private UtilityPriceType electricityPrice; // Giá điện
+
+    @Enumerated(EnumType.STRING)
+    private UtilityPriceType waterPrice;       // Giá nước
+
+    @Enumerated(EnumType.STRING)
+    private UtilityPriceType internetPrice;    // Giá internet
+
+    public enum PropertyType {
+        APARTMENT,      // Căn hộ
+        HOUSE,          // Nhà nguyên căn
+        VILLA,          // Biệt thự
+        COMMERCIAL,     // Mặt bằng kinh doanh
+        ROOM            // Phòng trọ
     }
 
-    // --- CÁC ENUM ---
-    public enum RentalType { WHOLE, SHARED }
-    public enum GenderConstraint { MALE_ONLY, FEMALE_ONLY, MIXED }
-    public enum Status { PENDING, ACTIVE, FULL, HIDDEN, EXPIRED, APPROVED, REJECTED }
+    public enum TransactionType {
+        FOR_SALE,       // Bán
+        FOR_RENT        // Cho thuê
+    }
+    public enum FurnishingStatus {
+        UNFURNISHED,        // Nhà trống
+        PARTIALLY_FURNISHED,// Nội thất cơ bản
+        FULLY_FURNISHED     // Đầy đủ nội thất
+    }
+    public enum AvailabilityStatus {
+        IMMEDIATELY,        // Vào ở ngay
+        THIS_MONTH,         // Trong tháng này
+        NEXT_MONTH,         // Đầu tháng sau
+        NEGOTIABLE          // Thỏa thuận với chủ nhà
+    }
+    public enum UtilityPriceType {
+        FREE,               // Miễn phí
+        STATE_PRICE,        // Theo giá nhà nước / nhà cung cấp
+        LANDLORD_PRICE,     // Theo quy định của chủ nhà (Khách tự hỏi)
+        SHARED,             // Chia đều theo đầu người / phòng
+        NEGOTIABLE          // Thỏa thuận
+    }
+
+    public enum Status { PENDING, ACTIVE, FULL, HIDDEN, EXPIRED, APPROVED, REJECTED, DELETED }
 }

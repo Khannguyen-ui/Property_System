@@ -13,7 +13,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "user_credentials")
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Customer extends BaseAuditEntity {
 
     @Id
@@ -49,7 +53,5 @@ public class Customer extends BaseAuditEntity {
         if (kycStatus == null) kycStatus = "UNVERIFIED";
     }
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+
 }

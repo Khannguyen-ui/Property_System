@@ -14,23 +14,33 @@ public enum ErrorCode {
     // === NHÓM LỖI IDENTITY SERVICE (1xxx) ===
     USER_EXISTED(1002, "Người dùng đã tồn tại", HttpStatus.BAD_REQUEST),
     USER_NOT_EXISTED(1003, "Không tìm thấy người dùng", HttpStatus.NOT_FOUND),
-    UNAUTHENTICATED(1004, "Chưa xác thực, vui lòng đăng nhập", HttpStatus.UNAUTHORIZED),
-    UNAUTHORIZED(1005, "Bạn không có quyền truy cập tài nguyên này", HttpStatus.FORBIDDEN),
 
-    PASSWORD_INCORRECT(1101, "Mật khẩu không chính xác", HttpStatus.UNAUTHORIZED),
+    // 🔴 401: Chưa đăng nhập / Token có vấn đề
+    UNAUTHORIZED(1001, "Bạn không có quyền truy cập", HttpStatus.UNAUTHORIZED),
+    UNAUTHENTICATED(1004, "Chưa xác thực, vui lòng đăng nhập", HttpStatus.UNAUTHORIZED),
+    TOKEN_INVALID(1011, "Mã xác thực không hợp lệ", HttpStatus.UNAUTHORIZED), // (Sửa lại thành 401 cho chuẩn)
+    TOKEN_EXPIRED(1012, "Mã xác thực đã hết hạn", HttpStatus.UNAUTHORIZED),   // (Sửa lại thành 401 cho chuẩn)
+    PASSWORD_INCORRECT(1101, "Mật khẩu không chính xác", HttpStatus.UNAUTHORIZED), // (401 là chuẩn)
+
+    // 🔴 403: Đã đăng nhập nhưng không đủ quyền (Bị khóa, sai Role, chưa KYC)
+    FORBIDDEN(1005, "Bạn không có quyền truy cập tài nguyên này", HttpStatus.FORBIDDEN), // (Đổi tên UNAUTHORIZED -> FORBIDDEN cho đỡ lú)
     ACCOUNT_LOCKED(1102, "Tài khoản hiện đang bị khóa", HttpStatus.FORBIDDEN),
-    KYC_NOT_VERIFIED(1103, "Tài khoản chưa được xác minh danh tính (KYC)", HttpStatus.FORBIDDEN),
+    KYC_NOT_VERIFIED(1103, "Tài khoản chưa được xác minh danh tính (KYC) hoặc chưa được duyệt", HttpStatus.FORBIDDEN), // Dùng cái này cho Service đăng bài!
+
     KYC_ALREADY_SUBMITTED(1104, "Hồ sơ KYC đã được gửi và đang chờ duyệt", HttpStatus.BAD_REQUEST),
-    TOKEN_INVALID(1011, "Mã xác thực không hợp lệ", HttpStatus.BAD_REQUEST),
-    TOKEN_EXPIRED(1012, "Mã xác thực đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // === NHÓM LỖI PROPERTY SERVICE (2xxx) ===
     PROPERTY_NOT_FOUND(2001, "Không tìm thấy bài đăng bất động sản", HttpStatus.NOT_FOUND),
+
+    // 🔴 403: Nhóm lỗi liên quan đến quyền sở hữu tài sản
     NOT_PROPERTY_OWNER(2002, "Bạn không phải là chủ sở hữu của bài đăng này", HttpStatus.FORBIDDEN),
+    NOT_PROJECT_OWNER(2007, "Bạn không phải là chủ dự án này", HttpStatus.FORBIDDEN),
+
     INVALID_PROPERTY_STATUS(2003, "Trạng thái bất động sản không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
     PROPERTY_EXPIRED(2004, "Bài đăng này đã hết hạn hiển thị", HttpStatus.GONE),
     LOCATION_REQUIRED(2005, "Tọa độ địa lý (Lat/Lng) là bắt buộc cho bài đăng", HttpStatus.BAD_REQUEST),
-    SEARCH_QUERY_ERROR(2006, "Lỗi trong quá trình tìm kiếm nâng cao", HttpStatus.INTERNAL_SERVER_ERROR)
+    SEARCH_QUERY_ERROR(2006, "Lỗi trong quá trình tìm kiếm nâng cao", HttpStatus.INTERNAL_SERVER_ERROR),
+    POST_LIMIT_EXCEEDED(2008, "Bạn đã hết lượt đăng bài miễn phí", HttpStatus.BAD_REQUEST) // (Đổi thành 2008 cho khỏi trùng 2007 ở trên)
     ;
 
     private final int code;

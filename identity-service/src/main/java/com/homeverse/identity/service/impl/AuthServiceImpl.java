@@ -88,6 +88,7 @@ public class AuthServiceImpl implements AuthService {
         // 3. Đóng gói thêm userId
         java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
         extraClaims.put("userId", user.getId());
+        extraClaims.put("role", user.getRole().name());
 
         // 4. Sinh Token có chứa userId
         String token = jwtUtils.generateToken(extraClaims, user);

@@ -32,7 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt = authHeader.substring(7);
         try {
             String userEmail = jwtUtils.extractUsername(jwt);
-            String role = jwtUtils.extractRole(jwt); // Lấy Role từ token
+            String role = jwtUtils.extractRole(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
