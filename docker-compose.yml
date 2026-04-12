@@ -107,22 +107,32 @@ services:
   postgres-property:
     image: postgis/postgis:16-3.4-alpine
     container_name: postgres-property
+    ports:
+      - "${POSTGRES_PROPERTY_PORT:-5435}:5432"
+    environment:
+      POSTGRES_DB: property_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c wal_level=logical
+    networks:
+      - homeverse-network
+    volumes:
+      - property-db-data:/var/lib/postgresql/data
 
   postgres-payment:
     image: postgres:16-alpine
     container_name: postgres-payment
     ports:
-      - "${POSTGRES_PROPERTY_PORT:-5435}:5432"
-      - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
+        - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
     environment:
-      POSTGRES_DB: property_db
       POSTGRES_DB: payment_db
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - homeverse-network
     volumes:
-      - property-db-data:/var/lib/postgresql/data
+      - payment_db-data:/var/lib/postgresql/data
+
   # 2. MICROSERVICES
       - payment-db-data:/var/lib/postgresql/data
 
@@ -190,14 +200,10 @@ services:
     networks:
       - homeverse-network
   property-service:
-
-  payment-service:
     build:
       context: ./property-service
-      context: ./payment-service
       dockerfile: Dockerfile
     container_name: property-service
-    container_name: payment-service
     ports:
       - "8086:8086"
     depends_on:
@@ -206,17 +212,32 @@ services:
       - identity-service
       - redis
 
-      - postgres-payment
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - homeverse-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - kafka
+      - postgres-payment
+    env_file:
+      - .env
+    environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payment:5432/payment_db
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     networks:
       - homeverse-network
-
+#3 NGINX
   nginx-proxy:
     image: nginx:alpine
     container_name: nginx-proxy
