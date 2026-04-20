@@ -2,7 +2,7 @@ name: Identity Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ new-update ]
     paths:
       - 'identity-service/**'
 

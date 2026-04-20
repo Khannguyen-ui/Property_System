@@ -2,7 +2,7 @@ name: Wallet Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ new-update ]
     paths:
       - 'wallet-service/**' # Đổi chỗ này cho từng service
 

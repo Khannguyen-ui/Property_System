@@ -2,7 +2,7 @@ name: Chat Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [new-update  ]
     paths:
       - 'chat-service/**' # Đổi chỗ này cho từng service
 
