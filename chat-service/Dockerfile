@@ -9,7 +9,7 @@ WORKDIR /app
 COPY target/*.jar app.jar
 
 
-EXPOSE 8089
+EXPOSE 8090
 
 # Chạy ứng dụng Spring Boot
 ENTRYPOINT ["java", "-jar", "app.jar"]
