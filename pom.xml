@@ -24,6 +24,9 @@
         <module>notification-service</module>
         <module>property-service</module>
         <module>payment-service</module>
+        <module>wallet-service</module>
+        <module>chat-service</module>
+        <module>payment-service</module>
         <module>search-service</module>
 
     </modules>

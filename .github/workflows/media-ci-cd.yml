@@ -2,7 +2,7 @@ name: Media Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ new-update ]
     paths:
       - 'media-service/**' # Đổi chỗ này cho từng service
 

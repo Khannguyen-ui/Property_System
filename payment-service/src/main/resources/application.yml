@@ -1,5 +1,5 @@
 server:
-  port: 8086
+  port: 8087
 
 spring:
   application:
@@ -9,14 +9,17 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # Đồng bộ gửi String JSON
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
       group-id: payment-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # Đổi nốt cái này về String để nhận cho dễ, parse sau bằng objectMapper
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
-        spring.json.trusted.packages: "com.homeverse.*,com.smartrental.*"
+        # Khi dùng StringDeserializer thì không cần cấu hình trusted.packages nữa
+        spring.json.trusted.packages: "*"
 
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/payment_db
@@ -35,7 +38,7 @@ spring:
         temp:
           use_jdbc_metadata_defaults: false
 
-# Cấu hình VNPAY - Khớp với tên biến trong file .env của Ân
+
 vnpay:
   tmn-code: ${VNP_TMNCODE}
   hash-secret: ${VNP_HASHSECRET}
@@ -44,3 +47,12 @@ vnpay:
 
 jwt:
   secret: ${JWT_SECRET}
+
+
+  
+
+
+
+
+
+  

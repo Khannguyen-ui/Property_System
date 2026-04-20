@@ -1,0 +1,56 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: wallet-service
+  
+  datasource:
+
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/wallet_db
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: wallet-group
+      auto-offset-reset: earliest
+      # Deserialize String cho Key và Value (vì mình thường nhận JSON String)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  data:
+    redis:
+      # Dùng để cache số dư hoặc chống spam giao dịch
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+# Cấu hình gọi sang các service khác nếu cần
+homeverse:
+  services:
+    identity: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+    customer: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
+
+jwt:
+  # Dùng chung secret để verify token khi trừ tiền
+  secret: ${JWT_SECRET}
+
+
+
+
+  

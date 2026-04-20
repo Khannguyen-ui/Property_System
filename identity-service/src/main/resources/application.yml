@@ -18,6 +18,26 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/facebook"
+            scope:
+              - email
+              - public_profile
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -32,6 +52,7 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000
@@ -42,8 +63,9 @@ homeverse:
 
 logging:
   level:
+    root: INFO
     com.homeverse.identity: DEBUG
-    org.springframework.security: INFO
+    org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 

@@ -14,7 +14,12 @@ import java.math.BigDecimal;
 public class PaymentEvent {
     private Long userId;
     private BigDecimal amount;
+    private Long packageId;
+    private String packageName;
     private String transactionId;
+    private Long roomId; 
     private String status;
     private String type;
+    private Integer durationDays;
+    private Integer priorityLevel;
 }

@@ -2,7 +2,7 @@ name: Customer Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ new-update ]
     paths:
       - 'customer-service/**' # Đổi chỗ này cho từng service
 

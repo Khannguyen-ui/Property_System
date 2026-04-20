@@ -17,3 +17,4 @@ docker/db_data/  # Nếu bạn có map volume database
 .DS_Store
 Thumbs.db
 .env
+.vscode/

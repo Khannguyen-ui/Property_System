@@ -2,7 +2,7 @@ name: Notification Service CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ new-update ]
     paths:
       - 'notification-service/**' # Đổi chỗ này cho từng service
 

@@ -27,6 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -218,14 +220,21 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getNewEmail());
         userRepository.save(user);
     }
-   @Override
+@Override
 public AuthResponse generateTokenForOAuth2(String email) {
-    // Tìm trong DB
+    // 1. Lấy user từ DB để có cái ID (ví dụ ID: 3)
     var user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("KHONG TIM THAY USER TRONG DB: " + email));
+            .orElseThrow(() -> new RuntimeException("User not found"));
 
-    // Tạo token (Đảm bảo jwtUtils đã được @RequiredArgsConstructor tiêm vào)
-    String jwtToken = jwtUtils.generateToken(user);
+    // 2. Tạo Map chứa ID - ĐÂY LÀ CHỖ QUYẾT ĐỊNH
+    Map<String, Object> extraClaims = new HashMap<>();
+    extraClaims.put("userId", user.getId()); 
+    extraClaims.put("role", user.getRole().name());
+
+    // 3. Gọi hàm tạo Token có 2 tham số (Map, User)
+    String jwtToken = jwtUtils.generateToken(extraClaims, user); 
+
+    System.out.println("🔥 DEBUG: Đã đúc Token cho ID: " + user.getId());
 
     return AuthResponse.builder()
             .token(jwtToken)

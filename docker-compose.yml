@@ -75,7 +75,14 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
+      - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -164,22 +171,22 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # Đảm bảo payment cũng chọc đúng ra Windows
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/payment_db
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
 
+  # ==================== SEARCH SERVICE (chuẩn file 1) ====================
   search-service:
     build:
       context: ./search-service
       dockerfile: Dockerfile
     container_name: search-service
     ports:
-      - "8088:8088"
+      - "8088:8088"          # ← đúng port như file 1 (file chuẩn)
     depends_on:
       - kafka
     env_file:
@@ -190,6 +197,49 @@ services:
       SPRING_ELASTICSEARCH_API_KEY: ${ELASTIC_CLOUD_API_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - homeverse-network
+
+  wallet-service:
+    build:
+      context: ./wallet-service
+      dockerfile: Dockerfile
+    container_name: wallet-service
+    ports:
+      - "8090:8088"          # ← đã chuyển sang 8090 để tránh conflict với search-service
+    depends_on:
+      - kafka
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - homeverse-network
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "8089:8089"
+    depends_on:
+      - kafka
+      - redis
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -207,7 +257,9 @@ services:
       - customer-service
       - property-service
       - payment-service
-      - search-service
+      - search-service      # ← đã thêm
+      - wallet-service
+      - chat-service
     networks:
       - homeverse-network
 

@@ -120,6 +120,12 @@ public class Property {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+    @Column(name = "is_promoted", nullable = false)
+    @Builder.Default
+    private Boolean isPromoted = false; 
+
+    @Column(name = "promotion_expires_at")
+    private LocalDateTime promotionExpiresAt; 
 
     @PrePersist
     protected void onCreate() {
