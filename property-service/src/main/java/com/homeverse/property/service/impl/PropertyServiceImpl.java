@@ -86,6 +86,14 @@ public class PropertyServiceImpl implements PropertyService {
             }
             snapshotName = project.getName();
         }
+        Property.LegalDocumentType legalType = Property.LegalDocumentType.NONE;
+        if (dto.getLegalDocumentType() != null) {
+            try {
+                legalType = Property.LegalDocumentType.valueOf(dto.getLegalDocumentType());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
         // 2. Chỉ tạo Point khi tọa độ đã được xác nhận hợp lệ
         Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
 
@@ -103,6 +111,10 @@ public class PropertyServiceImpl implements PropertyService {
                 .price(dto.getPrice())
                 .area(dto.getArea())
                 .address(dto.getAddress().trim())
+                .province(dto.getProvince())
+                .street(dto.getStreet().trim())
+                .ward(dto.getWard().trim())
+                .district(dto.getDistrict().trim())
                 .location(point)
                 .propertyType(Property.PropertyType.valueOf(dto.getPropertyType()))
                 .transactionType(Property.TransactionType.valueOf(dto.getTransactionType()))
@@ -117,6 +129,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .ownerSlugSnapshot(profile.getSlug())
                 .createdAt(now)
                 .expiresAt(expirationDate)
+                .legalDocumentType(legalType)
                 .bedrooms(dto.getBedrooms() != null ? dto.getBedrooms() : 0)
                 .bathrooms(dto.getBathrooms() != null ? dto.getBathrooms() : 0)
                 .hasBalcony(dto.getHasBalcony() != null ? dto.getHasBalcony() : false)
@@ -149,6 +162,10 @@ public class PropertyServiceImpl implements PropertyService {
 
         // 1. Quét rủi ro: Thay đổi vị trí (Địa chỉ, Tọa độ)
         if (!property.getAddress().equals(dto.getAddress().trim()) ||
+                (property.getProvince()!=null && !property.getProvince().equals(dto.getProvince())) ||
+                (property.getStreet() != null && !property.getStreet().equals(dto.getStreet().trim())) ||
+                (property.getWard() != null && !property.getWard().equals(dto.getWard().trim())) ||
+                (property.getDistrict() != null && !property.getDistrict().equals(dto.getDistrict().trim())) ||
                 Double.compare(property.getLocation().getY(), dto.getLatitude()) != 0 ||
                 Double.compare(property.getLocation().getX(), dto.getLongitude()) != 0) {
             requiresReview = true;
@@ -198,6 +215,10 @@ public class PropertyServiceImpl implements PropertyService {
         property.setPrice(dto.getPrice());
         property.setArea(dto.getArea());
         property.setAddress(dto.getAddress().trim());
+        property.setProvince(dto.getProvince().trim());
+        property.setStreet(dto.getStreet().trim());
+        property.setWard(dto.getWard().trim());
+        property.setDistrict(dto.getDistrict().trim());
         property.setPropertyType(Property.PropertyType.valueOf(dto.getPropertyType()));
         property.setTransactionType(Property.TransactionType.valueOf(dto.getTransactionType()));
         property.setCapacity(dto.getCapacity());
@@ -205,11 +226,16 @@ public class PropertyServiceImpl implements PropertyService {
         property.setVideoUrl(dto.getVideoUrl());
         property.setAmenities(dto.getAmenities());
 
-        // Cập nhật các trường Tùy chọn (Bắt Null)
+
         if (dto.getBedrooms() != null) property.setBedrooms(dto.getBedrooms());
         if (dto.getBathrooms() != null) property.setBathrooms(dto.getBathrooms());
         if (dto.getHasBalcony() != null) property.setHasBalcony(dto.getHasBalcony());
 
+        if (dto.getLegalDocumentType() == null || dto.getLegalDocumentType().trim().isEmpty() || dto.getLegalDocumentType().equals("NONE")) {
+            property.setLegalDocumentType(Property.LegalDocumentType.NONE);
+        } else {
+            property.setLegalDocumentType(Property.LegalDocumentType.valueOf(dto.getLegalDocumentType()));
+        }
         if (dto.getFurnishingStatus() != null)
             property.setFurnishingStatus(Property.FurnishingStatus.valueOf(dto.getFurnishingStatus()));
         if (dto.getAvailabilityStatus() != null)
@@ -458,8 +484,9 @@ public class PropertyServiceImpl implements PropertyService {
             if (dto.getElectricityPrice() != null) Property.UtilityPriceType.valueOf(dto.getElectricityPrice());
             if (dto.getWaterPrice() != null) Property.UtilityPriceType.valueOf(dto.getWaterPrice());
             if (dto.getInternetPrice() != null) Property.UtilityPriceType.valueOf(dto.getInternetPrice());
+            if (dto.getLegalDocumentType() != null) Property.LegalDocumentType.valueOf(dto.getLegalDocumentType());
         } catch (IllegalArgumentException e) {
-            // Chỉ bắt IllegalArgumentException (Nghĩa là có data nhưng bị sai chính tả so với Enum)
+
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
@@ -492,8 +519,13 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setTitle(property.getTitle());
         dto.setDescription(property.getDescription());
         dto.setPrice(property.getPrice());
+        dto.setPricePerSqm(property.getPricePerSqm());
         dto.setArea(property.getArea());
         dto.setAddress(property.getAddress());
+        dto.setProvince(property.getProvince());
+        dto.setStreet(property.getStreet());
+        dto.setWard(property.getWard());
+        dto.setDistrict(property.getDistrict());
 
         if (property.getLocation() != null) {
             dto.setLongitude(property.getLocation().getX());
@@ -507,6 +539,9 @@ public class PropertyServiceImpl implements PropertyService {
         }
         if (property.getStatus() != null) {
             dto.setStatus(property.getStatus().name());
+        }
+        if (property.getLegalDocumentType() != null) {
+            dto.setLegalDocumentType(property.getLegalDocumentType().name());
         }
         dto.setCapacity(property.getCapacity());
 

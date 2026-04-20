@@ -55,87 +55,14 @@ services:
       STATUS_STORAGE_REPLICATION_FACTOR: 1
       KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - kafka
-      - postgres-identity
     networks:
       - homeverse-network
 
-  postgres-identity:
-    image: postgres:16-alpine
-    container_name: postgres-identity
-    ports:
-      - "${POSTGRES_IDENTITY_PORT:-5431}:5432"
-    environment:
-      POSTGRES_DB: identity_db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    command: postgres -c wal_level=logical
-    networks:
-      - homeverse-network
-    volumes:
-      - identity-db-data-v2:/var/lib/postgresql/data
-
-  postgres-customer:
-    image: postgres:16-alpine
-    container_name: postgres-customer
-    ports:
-      - "${POSTGRES_CUSTOMER_PORT:-5433}:5432"
-    environment:
-      POSTGRES_DB: customer_db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    command: postgres -c wal_level=logical
-    networks:
-      - homeverse-network
-    volumes:
-      - customer-db-data:/var/lib/postgresql/data
-
-  postgres-notification:
-    image: postgres:16-alpine
-    container_name: postgres-notification
-    ports:
-      - "${POSTGRES_NOTIFICATION_PORT:-5434}:5432"
-    environment:
-      POSTGRES_DB: notification_db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    networks:
-      - homeverse-network
-    volumes:
-      - notification-db-data:/var/lib/postgresql/data
-  postgres-property:
-    image: postgis/postgis:16-3.4-alpine
-    container_name: postgres-property
-    ports:
-      - "${POSTGRES_PROPERTY_PORT:-5435}:5432"
-    environment:
-      POSTGRES_DB: property_db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    command: postgres -c wal_level=logical
-    networks:
-      - homeverse-network
-    volumes:
-      - property-db-data:/var/lib/postgresql/data
-
-  postgres-payment:
-    image: postgres:16-alpine
-    container_name: postgres-payment
-    ports:
-        - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
-    environment:
-      POSTGRES_DB: payment_db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    networks:
-      - homeverse-network
-    volumes:
-      - payment_db-data:/var/lib/postgresql/data
-
-  # 2. MICROSERVICES
-      - payment-db-data:/var/lib/postgresql/data
-
+  # ===================== MICROSERVICES =====================
   identity-service:
     build:
       context: ./identity-service
@@ -144,12 +71,13 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - postgres-identity
       - kafka
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
 
@@ -161,12 +89,13 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - postgres-customer
       - kafka
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
 
@@ -179,6 +108,8 @@ services:
       - "8084:8084"
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
 
@@ -192,13 +123,15 @@ services:
     depends_on:
       - kafka
       - redis
-      - postgres-notification
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
+
   property-service:
     build:
       context: ./property-service
@@ -208,14 +141,14 @@ services:
       - "8086:8086"
     depends_on:
       - kafka
-      - postgres-property
       - identity-service
       - redis
-
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
 
@@ -228,16 +161,40 @@ services:
       - "8087:8087"
     depends_on:
       - kafka
-      - postgres-payment
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payment:5432/payment_db
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      SPRING_PROFILES_ACTIVE: docker
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # Đảm bảo payment cũng chọc đúng ra Windows
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/payment_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - homeverse-network
-#3 NGINX
+
+  search-service:
+    build:
+      context: ./search-service
+      dockerfile: Dockerfile
+    container_name: search-service
+    ports:
+      - "8088:8088"
+    depends_on:
+      - kafka
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_ELASTICSEARCH_URIS: ${ELASTIC_CLOUD_URI}
+      SPRING_ELASTICSEARCH_API_KEY: ${ELASTIC_CLOUD_API_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - homeverse-network
+
   nginx-proxy:
     image: nginx:alpine
     container_name: nginx-proxy
@@ -250,16 +207,10 @@ services:
       - customer-service
       - property-service
       - payment-service
+      - search-service
     networks:
       - homeverse-network
 
 networks:
   homeverse-network:
     driver: bridge
-
-volumes:
-  identity-db-data-v2:
-  customer-db-data:
-  notification-db-data:
-  property-db-data:
-  payment-db-data:

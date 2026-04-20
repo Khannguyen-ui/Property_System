@@ -1,5 +1,5 @@
 {
-  "name": "identity-db-connector",
+  "name": "property-connector",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "tasks.max": "1",
@@ -7,20 +7,21 @@
     "database.port": "5432",
     "database.user": "postgres",
     "database.password": "123456",
-    "database.dbname": "identity_db",
-    "topic.prefix": "identity_server",
-    "table.include.list": "public.user_credentials",
-    "schema.include.list": "public",
+    "database.dbname": "property_db",
+    "topic.prefix": "homeverse_db",
+    "decimal.handling.mode": "string",
+    "table.include.list": "public.properties",
     "plugin.name": "pgoutput",
     "snapshot.mode": "initial",
-    "slot.name": "identity_v1",
-    "publication.name": "identity_pub",
+    "slot.name": "property_v1",
+    "publication.name": "property_pub",
     "publication.autocreate.mode": "filtered",
     "slot.drop.on.stop": "false",
     "database.sslmode": "disable",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter.schemas.enable": "false"
+    "value.converter.schemas.enable": "false",
+    "geometry.handling.mode": "geojson"
   }
 }

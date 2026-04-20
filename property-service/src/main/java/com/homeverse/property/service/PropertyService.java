@@ -19,9 +19,6 @@ public interface PropertyService {
     PropertyResponseDTO getPublicPropertyDetail(Long id);
 
     ReelsFeedResponse getReelsFeed(Long currentUserId,String guestId,String cursor, int size);
-    // Thêm String guestId vào vị trí thứ 2
-
-
-    // API Xem Trang cá nhân
+      // API Xem Trang cá nhân
     org.springframework.data.domain.Page<com.homeverse.property.dto.response.PropertyResponseDTO> getPropertiesByOwnerId(Long ownerId, int page, int size);
 }

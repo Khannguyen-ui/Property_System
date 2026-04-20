@@ -74,7 +74,7 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             @Param("slug") String slug
     );
 
-    // 1. Dành cho màn hình lướt Video (Chỉ lấy bài ACTIVE và CÓ VIDEO)
+
 
     @Query(value = """
     SELECT * FROM property p 

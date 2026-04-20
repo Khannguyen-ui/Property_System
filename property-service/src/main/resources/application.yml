@@ -5,8 +5,7 @@ spring:
   application:
     name: property-service
   datasource:
-
-    url: jdbc:postgresql://${PROPERTY_DB_HOST:localhost}:5432/property_db
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/property_db
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -23,7 +22,6 @@ spring:
       auto-offset-reset: earliest
   data:
     redis:
-
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 

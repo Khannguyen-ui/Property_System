@@ -15,9 +15,14 @@ public class PropertyResponseDTO {
     private String title;
     private String description;
     private BigDecimal price;
+    private BigDecimal pricePerSqm;
 
     private Double area;
     private String address;
+    private String province;
+    private String street;
+    private String ward;
+    private String district;
 
 
     private Double latitude;
@@ -47,4 +52,5 @@ public class PropertyResponseDTO {
     private String electricityPrice;
     private String waterPrice;
     private String internetPrice;
+    private String legalDocumentType;
 }

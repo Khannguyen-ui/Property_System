@@ -23,6 +23,8 @@
         <module>media-service</module>
         <module>notification-service</module>
         <module>property-service</module>
+        <module>payment-service</module>
+        <module>search-service</module>
 
     </modules>
 

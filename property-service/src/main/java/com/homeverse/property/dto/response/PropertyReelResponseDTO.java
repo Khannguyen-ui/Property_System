@@ -12,10 +12,9 @@ public class PropertyReelResponseDTO {
     private String address;
     private String videoUrl;
 
-    private boolean isLiked; // User đang xem đã Like chưa?
-    private boolean isSaved; // User đang xem đã Save chưa?
-    private Long likeCount;  // Tổng số lượt Like
-
+    private boolean isLiked;
+    private boolean isSaved;
+    private Long likeCount;
     private String ownerSlug;
     private String ownerNameSnapshot;
     private String ownerAvatarSnapshot;

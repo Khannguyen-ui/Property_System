@@ -19,8 +19,7 @@ spring:
         spring.json.trusted.packages: "com.homeverse.*,com.smartrental.*"
 
   datasource:
-    # Lấy từ file .env, nếu trống sẽ dùng giá trị mặc định sau dấu hai chấm
-    url: jdbc:postgresql://${PAYMENT_DB_HOST:postgres-payment}:5432/payment_db
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/payment_db
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
