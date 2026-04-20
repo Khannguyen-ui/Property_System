@@ -25,15 +25,19 @@ public class SecurityConfig {
    @Bean
 public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .authorizeHttpRequests(auth -> auth
-                    // Cho phép cả link callback và link tạo thanh toán không cần Token để test
-                    .requestMatchers("/api/payment/vnpay-return").permitAll()
-                    .requestMatchers("/api/payment/create-payment").permitAll() // Thêm dòng này để test
-                    .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+        .csrf(AbstractHttpConfigurer::disable)
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .authorizeHttpRequests(auth -> auth
+            
+            .requestMatchers("/api/payment/vnpay-return/**", "/api/payment/vnpay-ipn/**").permitAll()
+        
+            .requestMatchers("/api/payment/create-payment").permitAll() 
+            .requestMatchers("/api/packages/**").permitAll()
+            
+            
+            .anyRequest().authenticated()
+        )
+        .addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
 }

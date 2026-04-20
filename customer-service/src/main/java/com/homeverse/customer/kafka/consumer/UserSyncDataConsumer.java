@@ -25,7 +25,7 @@ public class UserSyncDataConsumer {
     private final ObjectMapper objectMapper;
     private final CustomerRepository customerRepository;
 
-    @KafkaListener(topics = "identity_server.public.user_credentials", groupId = "customer-group")
+    @KafkaListener(topics = "identity_server.public.user_credentials", groupId = "customer-group-v5")
     @Transactional
     public void consume(String message) {
         try {
@@ -42,10 +42,8 @@ public class UserSyncDataConsumer {
             String operation = debeziumMessage.getOp();
             UserCdcMessage payload = debeziumMessage.getAfter();
 
-
             if (("c".equals(operation) || "r".equals(operation)) && payload != null) {
                 if (!customerRepository.existsById(payload.getId())) {
-
 
                     String generatedSlug = generateSlug(payload.getFullName());
 
@@ -67,13 +65,11 @@ public class UserSyncDataConsumer {
                 customerRepository.findById(payload.getId()).ifPresent(customer -> {
                     boolean isChanged = false;
 
-                    // Nếu User đổi Email bên Identity, đồng bộ sang đây
                     if (payload.getEmail() != null && !payload.getEmail().equals(customer.getEmail())) {
                         customer.setEmail(payload.getEmail());
                         isChanged = true;
                         log.info(" Đồng bộ đổi Email cho Customer ID: {}", payload.getId());
                     }
-
 
                     if (payload.getKycStatus() != null && !payload.getKycStatus().equals(customer.getKycStatus())) {
                         customer.setKycStatus(payload.getKycStatus());
@@ -91,7 +87,6 @@ public class UserSyncDataConsumer {
             log.error(" Lỗi khi xử lý thông điệp CDC: {}", e.getMessage(), e);
         }
     }
-
 
     private String generateSlug(String name) {
         if (name == null || name.trim().isEmpty()) {

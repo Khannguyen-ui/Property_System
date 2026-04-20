@@ -39,20 +39,35 @@ public class JwtUtils {
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
 
-
-
+        if (userDetails instanceof com.homeverse.identity.entity.UserCredential) {
+            com.homeverse.identity.entity.UserCredential user = (com.homeverse.identity.entity.UserCredential) userDetails;
+            extraClaims.put("userId", user.getId());
+            extraClaims.put("role", user.getRole().name());
+        } else if (userDetails instanceof com.homeverse.identity.security.CustomOAuth2User) {
+            com.homeverse.identity.security.CustomOAuth2User user = (com.homeverse.identity.security.CustomOAuth2User) userDetails;
+            extraClaims.put("userId", user.getUserId());
+            extraClaims.put("role", "USER");
+        }
         return generateToken(extraClaims, userDetails);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return Jwts.builder()
-                .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
+    // ÉP LOG RA TERMINAL - KIỂM TRA TRONG DOCKER LOGS
+    System.out.println("==========================================");
+    System.out.println("🔥 JWT DEBUG: ĐANG TẠO TOKEN CHO: " + userDetails.getUsername());
+    System.out.println("🔥 JWT DEBUG: CLAIMS NHẬN ĐƯỢC: " + extraClaims);
+    System.out.println("==========================================");
+
+    Map<String, Object> finalClaims = new HashMap<>(extraClaims);
+    finalClaims.put(Claims.SUBJECT, userDetails.getUsername()); 
+
+    return Jwts.builder()
+            .setClaims(finalClaims)
+            .setIssuedAt(new Date(System.currentTimeMillis()))
+            .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+            .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+            .compact();
+}
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
@@ -74,7 +89,6 @@ public class JwtUtils {
                 .parseClaimsJws(token)
                 .getBody();
     }
-
 
     private Key getSignInKey() {
         return Keys.hmacShaKeyFor(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));

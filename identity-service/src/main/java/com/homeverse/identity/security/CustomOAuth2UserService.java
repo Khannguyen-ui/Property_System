@@ -11,8 +11,6 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,19 +26,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         
         String email = oAuth2User.getAttribute("email");
         String fullName = oAuth2User.getAttribute("name");
-        String fbId = oAuth2User.getAttribute("id"); // ID duy nhất của FB
+        String fbId = oAuth2User.getAttribute("id");
 
         log.info("Xử lý OAuth2 từ [{}]. Email: {}, FB_ID: {}", registrationId, email, fbId);
 
-        // LOGIC MỚI: Tìm user dựa trên Email (nếu có) hoặc dựa trên ID nhà cung cấp
-        // Ở đây mình tạm thời dùng email ảo nếu không có email để khớp với cấu trúc DB hiện tại của bạn
         String searchKey = (email != null) ? email : fbId + "@facebook.com";
 
+        // Tìm hoặc tạo mới User
         UserCredential user = userRepository.findByEmail(searchKey)
                 .map(existingUser -> {
                     existingUser.setFullName(fullName);
-                    // Nếu login lần này có phone (FB trả về) thì cập nhật vào
-                    // Lưu ý: Facebook chỉ trả phone nếu bạn được duyệt quyền đặc biệt
                     return existingUser;
                 })
                 .orElseGet(() -> {
@@ -53,16 +48,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     if (email != null) {
                         builder.email(email);
                     } else {
-                        // Nếu dùng SĐT: Để trống email (null) và điền vào cột phone
-                        // Giả định bạn đã có cột phone trong Entity
-                        builder.email(searchKey); // Vẫn cần một định danh để findByEmail không lỗi
-                        // builder.phone(fbId); // Bạn có thể lưu ID FB vào cột phone nếu muốn
+                        builder.email(searchKey);
                     }
-                    
                     return builder.build();
                 });
 
-        userRepository.saveAndFlush(user);
-        return oAuth2User;
+        // LƯU USER ĐỂ SINH ID (NẾU MỚI) HOẶC LẤY ID HIỆN TẠI
+        UserCredential savedUser = userRepository.saveAndFlush(user);
+        
+        log.info("Đã đồng bộ User vào DB. ID: {}", savedUser.getId());
+
+        // QUAN TRỌNG: Trả về CustomOAuth2User thay vì oAuth2User mặc định
+        return new CustomOAuth2User(oAuth2User, savedUser.getId());
     }
 }

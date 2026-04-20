@@ -34,7 +34,11 @@ public class Customer extends BaseAuditEntity {
     private String address;
     private String avatarUrl;
     private String bannerUrl;
-
+    private String membershipLevel; // Ví dụ: GOLD, SILVER, FREE
+    
+    private Long currentMembershipId; // Lưu ID của gói (FK sang bảng ServicePackage nếu có cùng DB)
+    
+    private LocalDateTime membershipExpiresAt;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private LifestyleProfile lifestyleProfile;
@@ -51,6 +55,7 @@ public class Customer extends BaseAuditEntity {
     @PrePersist
     protected void onCreateEntity() {
         if (kycStatus == null) kycStatus = "UNVERIFIED";
+        if (membershipLevel == null) membershipLevel = "FREE";
     }
 
 

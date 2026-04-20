@@ -6,15 +6,17 @@ import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.identity.dto.request.*;
 import com.homeverse.identity.dto.response.AuthResponse;
 import com.homeverse.identity.dto.response.UserResponseDTO;
+import com.homeverse.identity.security.CustomOAuth2User;
 import com.homeverse.identity.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-
+@Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -42,16 +44,15 @@ public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
         throw new AppException(ErrorCode.UNAUTHENTICATED);
     }
 
-    // 2. Lấy email từ Google
+    // 2. Lấy email từ Google/Facebook
     String email = oAuth2User.getAttribute("email");
-if (email == null) {
-    // Facebook đăng ký bằng SĐT sẽ không có email, dùng ID để tạo định danh khớp với DB
-    String fbId = oAuth2User.getAttribute("id");
-    email = fbId + "@facebook.com";
-}
+    if (email == null) {
+        String fbId = oAuth2User.getAttribute("id");
+        email = fbId + "@facebook.com";
+    }
+
     System.out.println(">>> OAuth2 Login thành công cho: " + email);
 
-    // 3. Gọi Service để lấy đủ Token và thông tin User từ DB
     AuthResponse response = authService.generateTokenForOAuth2(email);
 
     return ApiResponse.<AuthResponse>builder()

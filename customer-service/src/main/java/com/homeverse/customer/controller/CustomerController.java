@@ -1,6 +1,7 @@
 package com.homeverse.customer.controller;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.customer.dto.UserSummaryDTO;
 import com.homeverse.customer.dto.request.*;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
 import com.homeverse.customer.dto.response.CustomerResponseDTO;
@@ -8,6 +9,7 @@ import com.homeverse.customer.dto.response.KycOcrResponseDTO;
 import com.homeverse.customer.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -92,4 +94,8 @@ public class CustomerController {
                 .result("Hồ sơ KYC đã được gửi thành công! Vui lòng chờ quản trị viên phê duyệt.")
                 .build();
     }
+   @GetMapping("/{id}/summary")
+public ResponseEntity<UserSummaryDTO> getUserSummary(@PathVariable Long id) {
+    return ResponseEntity.ok(customerService.getUserSummary(id));
+}
 }

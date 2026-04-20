@@ -2,6 +2,7 @@ package com.homeverse.customer.service.impl;
 
 import com.homeverse.customer.client.FptAiClient;
 import com.homeverse.customer.client.MediaClient;
+import com.homeverse.customer.dto.UserSummaryDTO;
 import com.homeverse.customer.dto.external.FptOcrResponse;
 import com.homeverse.customer.dto.request.*;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
@@ -324,4 +325,15 @@ public class CustomerServiceImpl implements CustomerService {
 
         return slug + "-" + randomTail;
     }
+    @Override
+public UserSummaryDTO getUserSummary(Long id) {
+    Customer customer = customerRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+
+    return UserSummaryDTO.builder()
+            .id(customer.getId())
+            .fullName(customer.getFullName())
+            .avatarUrl(customer.getAvatarUrl()) // Lấy đúng field avatarUrl từ Entity của bạn
+            .build();
+}
 }

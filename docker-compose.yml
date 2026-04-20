@@ -104,6 +104,7 @@ services:
       - homeverse-network
     volumes:
       - notification-db-data:/var/lib/postgresql/data
+
   postgres-property:
     image: postgis/postgis:16-3.4-alpine
     container_name: postgres-property
@@ -123,7 +124,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-payment
     ports:
-        - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
+      - "${POSTGRES_PAYMENT_PORT:-5436}:5432"
     environment:
       POSTGRES_DB: payment_db
       POSTGRES_USER: ${POSTGRES_USER}
@@ -131,10 +132,34 @@ services:
     networks:
       - homeverse-network
     volumes:
-      - payment_db-data:/var/lib/postgresql/data
-
-  # 2. MICROSERVICES
       - payment-db-data:/var/lib/postgresql/data
+
+  postgres-wallet:
+    image: postgres:16-alpine
+    container_name: postgres-wallet
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_DB: wallet_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - homeverse-network
+    volumes:
+      - wallet-db-data:/var/lib/postgresql/data
+  postgres-chat:
+    image: postgres:16-alpine
+    container_name: postgres-chat
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_DB: chat_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - homeverse-network
+    volumes:
+      - chat-db-data:/var/lib/postgresql/data
 
   identity-service:
     build:
@@ -149,7 +174,14 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_PROFILES_ACTIVE: docker
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
+      - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - homeverse-network
 
@@ -199,6 +231,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
     networks:
       - homeverse-network
+
   property-service:
     build:
       context: ./property-service
@@ -211,7 +244,6 @@ services:
       - postgres-property
       - identity-service
       - redis
-
     env_file:
       - .env
     environment:
@@ -232,12 +264,52 @@ services:
     env_file:
       - .env
     environment:
+      - TZ=Asia/Ho_Chi_Minh
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payment:5432/payment_db
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     networks:
       - homeverse-network
-#3 NGINX
+
+  wallet-service:
+    build:
+      context: ./wallet-service
+      dockerfile: Dockerfile
+    container_name: wallet-service
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres-wallet
+      - kafka
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - homeverse-network
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "8089:8089"
+    depends_on:
+      - postgres-chat
+      - kafka
+      - redis
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-chat:5432/chat_db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    networks:
+      - homeverse-network
   nginx-proxy:
     image: nginx:alpine
     container_name: nginx-proxy
@@ -250,6 +322,8 @@ services:
       - customer-service
       - property-service
       - payment-service
+      - wallet-service
+      - chat-service
     networks:
       - homeverse-network
 
@@ -263,3 +337,5 @@ volumes:
   notification-db-data:
   property-db-data:
   payment-db-data:
+  wallet-db-data:
+  chat-db-data:

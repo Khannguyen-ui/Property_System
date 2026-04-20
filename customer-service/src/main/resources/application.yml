@@ -20,7 +20,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: customer-group
+      group-id: customer-group-v5
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -40,3 +40,5 @@ MEDIA_SERVICE_URL: ${MEDIA_SERVICE_URL:http://localhost:8084}
 
 jwt:
   secret: ${JWT_SECRET}
+
+  
