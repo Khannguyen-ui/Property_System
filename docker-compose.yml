@@ -208,7 +208,7 @@ services:
       dockerfile: Dockerfile
     container_name: wallet-service
     ports:
-      - "8090:8088"          # ← đã chuyển sang 8090 để tránh conflict với search-service
+      - "8080:8090"          # ← đã chuyển sang 8090 để tránh conflict với search-service
     depends_on:
       - kafka
     env_file:
@@ -230,7 +230,7 @@ services:
       dockerfile: Dockerfile
     container_name: chat-service
     ports:
-      - "8089:8089"
+      - "8080:8089"
     depends_on:
       - kafka
       - redis
@@ -240,6 +240,7 @@ services:
       - TZ=Asia/Ho_Chi_Minh
       - SPRING_PROFILES_ACTIVE=docker
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
