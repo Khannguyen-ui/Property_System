@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.function.Function;
 
 @Slf4j
 @Component
@@ -32,24 +31,27 @@ public class JwtValidator {
         }
     }
 
-    public String getUserIdFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
+    // Lấy Claims chung để tối ưu hiệu năng
+    private Claims getAllClaimsFromToken(String token) {
+        return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
 
-
+    public String getUserIdFromToken(String token) {
+        Claims claims = getAllClaimsFromToken(token);
         Object userId = claims.get("userId");
         return userId != null ? String.valueOf(userId) : claims.getSubject();
     }
 
     public String getUserEmailFromToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return getAllClaimsFromToken(token).getSubject();
+    }
+
+
+    public String getRoleFromToken(String token) {
+        return getAllClaimsFromToken(token).get("role", String.class);
     }
 }

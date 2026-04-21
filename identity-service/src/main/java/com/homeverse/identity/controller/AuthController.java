@@ -93,4 +93,20 @@ public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
                 .result("Đổi email thành công. Vui lòng đăng nhập lại bằng email mới!")
                 .build();
     }
+    @PostMapping("/refresh")
+    public ApiResponse<AuthResponse> refreshToken(@RequestHeader("Authorization") String authHeader) {
+        return ApiResponse.<AuthResponse>builder()
+                .code(200)
+                .message("Làm mới Token thành công!")
+                .result(authService.refreshToken(authHeader))
+                .build();
+    }
+    @PostMapping("/logout")
+    public ApiResponse<String> logout(@RequestHeader("Authorization") String authHeader) {
+        authService.logout(authHeader);
+        return ApiResponse.<String>builder()
+                .code(200)
+                .result("Đăng xuất thành công")
+                .build();
+    }
 }

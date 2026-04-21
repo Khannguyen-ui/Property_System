@@ -52,22 +52,18 @@ public class JwtUtils {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-    // ÉP LOG RA TERMINAL - KIỂM TRA TRONG DOCKER LOGS
-    System.out.println("==========================================");
-    System.out.println("🔥 JWT DEBUG: ĐANG TẠO TOKEN CHO: " + userDetails.getUsername());
-    System.out.println("🔥 JWT DEBUG: CLAIMS NHẬN ĐƯỢC: " + extraClaims);
-    System.out.println("==========================================");
 
-    Map<String, Object> finalClaims = new HashMap<>(extraClaims);
-    finalClaims.put(Claims.SUBJECT, userDetails.getUsername()); 
 
-    return Jwts.builder()
-            .setClaims(finalClaims)
-            .setIssuedAt(new Date(System.currentTimeMillis()))
-            .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-            .signWith(getSignInKey(), SignatureAlgorithm.HS256)
-            .compact();
-}
+        Map<String, Object> finalClaims = new HashMap<>(extraClaims);
+        finalClaims.put(Claims.SUBJECT, userDetails.getUsername());
+
+        return Jwts.builder()
+                .setClaims(finalClaims)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
@@ -78,7 +74,7 @@ public class JwtUtils {
         return extractExpiration(token).before(new Date());
     }
 
-    private Date extractExpiration(String token) {
+    public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 

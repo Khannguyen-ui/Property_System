@@ -2,6 +2,7 @@ package com.homeverse.identity.service.impl;
 
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.DisabledException;
 import com.homeverse.identity.dto.request.*;
 import com.homeverse.identity.dto.response.*;
@@ -27,15 +28,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService {
+public class    AuthServiceImpl implements AuthService {
     private final PasswordResetTokenRepository tokenRepository;
     private final UserCredentialRepository userRepository;
     private final UserMapper userMapper;
@@ -43,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final JavaMailSender mailSender;
+    private final StringRedisTemplate redisTemplate;
 
     @Value("${frontend.url:http://localhost:3000}")
     private String frontendUrl;
@@ -220,28 +224,122 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getNewEmail());
         userRepository.save(user);
     }
-@Override
-public AuthResponse generateTokenForOAuth2(String email) {
-    // 1. Lấy user từ DB để có cái ID (ví dụ ID: 3)
-    var user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
 
-    // 2. Tạo Map chứa ID - ĐÂY LÀ CHỖ QUYẾT ĐỊNH
-    Map<String, Object> extraClaims = new HashMap<>();
-    extraClaims.put("userId", user.getId()); 
-    extraClaims.put("role", user.getRole().name());
+    @Override
+    public AuthResponse generateTokenForOAuth2(String email) {
+        // 1. Lấy user từ DB để có cái ID (ví dụ ID: 3)
+        var user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-    // 3. Gọi hàm tạo Token có 2 tham số (Map, User)
-    String jwtToken = jwtUtils.generateToken(extraClaims, user); 
+        // 2. Tạo Map chứa ID - ĐÂY LÀ CHỖ QUYẾT ĐỊNH
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userId", user.getId());
+        extraClaims.put("role", user.getRole().name());
 
-    System.out.println("🔥 DEBUG: Đã đúc Token cho ID: " + user.getId());
+        // 3. Gọi hàm tạo Token có 2 tham số (Map, User)
+        String jwtToken = jwtUtils.generateToken(extraClaims, user);
 
-    return AuthResponse.builder()
-            .token(jwtToken)
-            .id(user.getId())
-            .email(user.getEmail())
-            .fullName(user.getFullName())
-            .role(user.getRole().name())
-            .build();
-}
+        System.out.println("DEBUG: Đã đúc Token cho ID: " + user.getId());
+
+        return AuthResponse.builder()
+                .token(jwtToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .build();
+    }
+
+
+    @Override
+    public AuthResponse refreshToken(String authHeader) {
+        // 1. Kiểm tra header hợp lệ
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        String oldToken = authHeader.substring(7);
+        String email;
+        try {
+            // Lấy email từ token cũ (Token cũ dù hết hạn quyền nhưng vẫn extract được email)
+            email = jwtUtils.extractUsername(oldToken);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        // 2. Lấy User từ DB (Lúc này Role dưới DB đã là OWNER do Kafka cập nhật)
+        UserCredential user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if (!user.isActive()) {
+            throw new AppException(ErrorCode.ACCOUNT_LOCKED);
+        }
+
+        // 3. Đúc lại Token mới toanh với Role mới
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("userId", user.getId());
+        extraClaims.put("role", user.getRole().name()); // Lấy Role chuẩn từ DB
+
+        String newToken = jwtUtils.generateToken(extraClaims, user);
+
+        // 4. BƯỚC QUAN TRỌNG: Nhổ cờ trong Redis để thả cho đi qua
+        redisTemplate.delete("require_refresh:" + email);
+        log.info("Đã cấp Token mới (Role: {}) và xóa cờ Redis cho user: {}", user.getRole().name(), email);
+
+
+        try {
+            Date expiration = jwtUtils.extractExpiration(oldToken);
+            long remainingTime = expiration.getTime() - System.currentTimeMillis();
+            if (remainingTime > 0) {
+                redisTemplate.opsForValue().set(
+                        "BLACKLIST:" + oldToken,
+                        "true",
+                        remainingTime,
+                        TimeUnit.MILLISECONDS
+                );
+                log.info(" Đã tiêu diệt Token cũ, đưa vào Blacklist ({} ms)", remainingTime);
+            }
+        } catch (Exception e) {
+            log.warn("Token cũ đã hết hạn tự nhiên");
+        }
+
+        // 6. Trả về cho Frontend
+        return AuthResponse.builder()
+                .token(newToken)
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .build();
+    }
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return; // Không có token thì thôi, coi như đã đăng xuất
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            // 1. Lấy thời điểm token hết hạn
+            Date expiration = jwtUtils.extractExpiration(token);
+
+            // 2. Tính toán thời gian sống còn lại (tính bằng milliseconds)
+            long remainingTime = expiration.getTime() - System.currentTimeMillis();
+
+            // 3. Nếu token vẫn còn hạn thì mới tống vào Blacklist
+            if (remainingTime > 0) {
+                redisTemplate.opsForValue().set(
+                        "BLACKLIST:" + token,
+                        "true",
+                        remainingTime,
+                        TimeUnit.MILLISECONDS
+                );
+                log.info(" Đã đưa Token vào Blacklist. Thời gian lưu trữ: {} ms", remainingTime);
+            }
+        } catch (Exception e) {
+            // Nếu Token đã hết hạn tự nhiên (bị văng lỗi Exception) thì không cần làm gì cả
+            log.warn("Token đã hết hạn hoặc không hợp lệ, bỏ qua khâu Blacklist.");
+        }
+    }
 }

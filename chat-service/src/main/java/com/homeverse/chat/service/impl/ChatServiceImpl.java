@@ -49,6 +49,7 @@ public class ChatServiceImpl implements ChatService {
         return jwt.getClaim("userId"); 
     }
 
+
     @Override
     @Transactional
     public ChatMessageResponse saveMessage(ChatMessageDTO dto) {
