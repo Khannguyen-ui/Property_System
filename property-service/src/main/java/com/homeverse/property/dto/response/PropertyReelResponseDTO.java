@@ -20,4 +20,5 @@ public class PropertyReelResponseDTO {
     private String ownerAvatarSnapshot;
 
     private LocalDateTime createdAt;
+    private Boolean isPromoted;
 }

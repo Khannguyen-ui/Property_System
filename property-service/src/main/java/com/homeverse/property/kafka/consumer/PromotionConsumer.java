@@ -20,55 +20,53 @@ public class PromotionConsumer {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    @KafkaListener(topics = "payment-success-topic", groupId = "property-promotion-debug-final-v3") // Đổi hẳn sang group mới
+    @KafkaListener(topics = "payment-success-topic", groupId = "property-promotion-group-v3")
     public void consumePromotion(String message) {
-        // LOG 1: Check xem có nhận được String từ Kafka không
-        log.info("🔥 [KAFKA-RECEIVE] Tin nhắn thô cập bến: {}", message);
+        log.info("🔥 [KAFKA-RECEIVE] Tin nhắn: {}", message);
         
         try {
-            // LOG 2: Check xem parse JSON sang Object có lỗi không
             PaymentEvent event = objectMapper.readValue(message, PaymentEvent.class);
-            log.info("📦 [EVENT-PARSED] Object sau khi parse: RoomId={}, Type={}, Days={}", 
-                    event.getRoomId(), event.getType(), event.getDurationDays());
 
-            // LOG 3: Check điều kiện IF
-            if (event.getRoomId() == null) {
-                log.error("⚠️ [ERROR] RoomId bị NULL! Check lại module Common và Payment Producer.");
+            if ("MEMBERSHIP".equals(event.getType())) {
+                log.info("ℹ️ [SKIP] Loại MEMBERSHIP được xử lý bởi QuotaConsumer.");
                 return;
             }
 
             if (!"ROOM_PROMOTION".equals(event.getType())) {
-                log.warn("ℹ️ [SKIP] Type không phải ROOM_PROMOTION (Type nhận được: {}). Bỏ qua.", event.getType());
+                log.warn("ℹ️ [SKIP] Type {} không thuộc phạm vi xử lý.", event.getType());
                 return;
             }
 
-            // LOG 4: Bắt đầu tìm kiếm trong DB
-            log.info("🔍 [DB-SEARCH] Đang tìm Property ID: {} trong Database...", event.getRoomId());
+            if (event.getRoomId() == null) {
+                log.error("⚠️ [ERROR] RoomId null trong tin nhắn ROOM_PROMOTION!");
+                return;
+            }
+
+            log.info("🔍 [DB-SEARCH] Tìm Property ID: {}", event.getRoomId());
             
             propertyRepository.findById(event.getRoomId()).ifPresentOrElse(property -> {
-                log.info("🏠 [DB-FOUND] Đã tìm thấy phòng: {}. Trạng thái cũ isPromoted: {}", 
-                        property.getTitle(), property.getIsPromoted());
+                log.info("🏠 [DB-FOUND] Đang xử lý: {}. Gói: {}", property.getTitle(), event.getPackageName());
 
-                // CẬP NHẬT TRẠNG THÁI
-                property.setIsPromoted(true); 
+                property.setIsPromoted(true);
+                property.setPromotionPackageName(event.getPackageName()); 
+                property.setPromotionPackageId(event.getPackageId());
                 
                 LocalDateTime now = LocalDateTime.now();
                 if (property.getPromotionExpiresAt() != null && property.getPromotionExpiresAt().isAfter(now)) {
                     property.setPromotionExpiresAt(property.getPromotionExpiresAt().plusDays(event.getDurationDays()));
-                    log.info("➕ [GIA-HAN] Cộng dồn ngày. Hạn mới: {}", property.getPromotionExpiresAt());
+                    log.info("➕ [EXTEND] Hạn mới: {}", property.getPromotionExpiresAt());
                 } else {
                     property.setPromotionExpiresAt(now.plusDays(event.getDurationDays()));
-                    log.info("✨ [MOI-TAO] Kích hoạt mới. Hạn đến: {}", property.getPromotionExpiresAt());
+                    log.info("✨ [ACTIVATE] Hạn đến: {}", property.getPromotionExpiresAt());
                 }
                 
-                // LOG 5: Lưu xuống DB
                 propertyRepository.save(property);
-                log.info("✅ [SUCCESS] Đã lưu vào DB thành công cho: {}", property.getTitle());
+                log.info("✅ [SUCCESS] Đã cập nhật gói dịch vụ cho: {}", property.getTitle());
                 
-            }, () -> log.error("❌ [NOT-FOUND] Không tìm thấy bài đăng ID: {} trong bảng properties!", event.getRoomId()));
+            }, () -> log.error("❌ [NOT-FOUND] Không tìm thấy bài đăng ID: {}", event.getRoomId()));
 
         } catch (Exception e) {
-            log.error("💥 [CRITICAL-ERROR] Lỗi nghiêm trọng: ", e); // In cả StackTrace ra luôn
+            log.error("💥 [ERROR] Lỗi xử lý Promotion: {}", e.getMessage());
         }
     }
 }

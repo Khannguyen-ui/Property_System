@@ -14,7 +14,6 @@ import java.util.List;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.SQLDelete;
 
-
 @Entity
 @Table(name = "properties")
 @Getter
@@ -52,7 +51,6 @@ public class Property {
     private BigDecimal pricePerSqm;
     private Double area;
 
-
     private String address;
     @Column(name = "province")
     private String province;
@@ -65,7 +63,6 @@ public class Property {
 
     @Column(name = "street")
     private String street;
-
 
     @Column(columnDefinition = "geometry(Point, 4326)")
     private Point location;
@@ -83,14 +80,12 @@ public class Property {
 
     private Integer capacity;
 
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<String> images;
 
     @Column(name = "video_url")
     private String videoUrl;
-
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "amenities", columnDefinition = "jsonb")
@@ -108,7 +103,6 @@ public class Property {
     @Column(name = "owner_avatar_snapshot")
     private String ownerAvatarSnapshot;
 
-
     @Column(name = "owner_slug_snapshot")
     private String ownerSlugSnapshot;
 
@@ -122,16 +116,22 @@ public class Property {
     private LocalDateTime expiresAt;
     @Column(name = "is_promoted", nullable = false)
     @Builder.Default
-    private Boolean isPromoted = false; 
+    private Boolean isPromoted = false;
 
     @Column(name = "promotion_expires_at")
-    private LocalDateTime promotionExpiresAt; 
+    private LocalDateTime promotionExpiresAt;
+    @Column(name = "promotion_package_id")
+    private Long promotionPackageId;
+    @Column(name = "promotion_package_name")
+    private String promotionPackageName;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (status == null) status = Status.PENDING;
-        if (expiresAt == null) expiresAt = createdAt.plusDays(30);
+        if (status == null)
+            status = Status.PENDING;
+        if (expiresAt == null)
+            expiresAt = createdAt.plusDays(30);
         calculatePricePerSqm();
     }
 
@@ -150,10 +150,9 @@ public class Property {
         }
     }
 
-    private Integer bedrooms;   // Số phòng ngủ
-    private Integer bathrooms;  // Số phòng vệ sinh
+    private Integer bedrooms; // Số phòng ngủ
+    private Integer bathrooms; // Số phòng vệ sinh
     private Boolean hasBalcony; // Có ban công
-
 
     @Enumerated(EnumType.STRING)
     private FurnishingStatus furnishingStatus; // Tình trạng nội thất
@@ -165,51 +164,53 @@ public class Property {
     private UtilityPriceType electricityPrice; // Giá điện
 
     @Enumerated(EnumType.STRING)
-    private UtilityPriceType waterPrice;       // Giá nước
+    private UtilityPriceType waterPrice; // Giá nước
 
     @Enumerated(EnumType.STRING)
-    private UtilityPriceType internetPrice;    // Giá internet
+    private UtilityPriceType internetPrice; // Giá internet
 
     public enum PropertyType {
-        APARTMENT,      // Căn hộ
-        HOUSE,          // Nhà nguyên căn
-        VILLA,          // Biệt thự
-        COMMERCIAL,     // Mặt bằng kinh doanh
-        ROOM            // Phòng trọ
+        APARTMENT, // Căn hộ
+        HOUSE, // Nhà nguyên căn
+        VILLA, // Biệt thự
+        COMMERCIAL, // Mặt bằng kinh doanh
+        ROOM // Phòng trọ
     }
 
     public enum TransactionType {
-        FOR_SALE,       // Bán
-        FOR_RENT        // Cho thuê
+        FOR_SALE, // Bán
+        FOR_RENT // Cho thuê
     }
 
     public enum FurnishingStatus {
-        UNFURNISHED,        // Nhà trống
-        PARTIALLY_FURNISHED,// Nội thất cơ bản
-        FULLY_FURNISHED     // Đầy đủ nội thất
+        UNFURNISHED, // Nhà trống
+        PARTIALLY_FURNISHED, // Nội thất cơ bản
+        FULLY_FURNISHED // Đầy đủ nội thất
     }
 
     public enum AvailabilityStatus {
-        IMMEDIATELY,        // Vào ở ngay
-        THIS_MONTH,         // Trong tháng này
-        NEXT_MONTH,         // Đầu tháng sau
-        NEGOTIABLE          // Thỏa thuận với chủ nhà
+        IMMEDIATELY, // Vào ở ngay
+        THIS_MONTH, // Trong tháng này
+        NEXT_MONTH, // Đầu tháng sau
+        NEGOTIABLE // Thỏa thuận với chủ nhà
     }
 
     public enum UtilityPriceType {
-        FREE,               // Miễn phí
-        STATE_PRICE,        // Theo giá nhà nước / nhà cung cấp
-        LANDLORD_PRICE,     // Theo quy định của chủ nhà (Khách tự hỏi)
-        SHARED,             // Chia đều theo đầu người / phòng
-        NEGOTIABLE          // Thỏa thuận
+        FREE, // Miễn phí
+        STATE_PRICE, // Theo giá nhà nước / nhà cung cấp
+        LANDLORD_PRICE, // Theo quy định của chủ nhà (Khách tự hỏi)
+        SHARED, // Chia đều theo đầu người / phòng
+        NEGOTIABLE // Thỏa thuận
     }
 
     public enum LegalDocumentType {
-        NONE,                       // Không cung cấp
-        CERTIFICATE_OF_OWNERSHIP,   // Sổ đỏ / Sổ hồng (Chính chủ)
-        LEASE_CONTRACT,             // Hợp đồng thuê nhà (Cho thuê lại)
-        AUTHORIZATION_LETTER        // Giấy ủy quyền
+        NONE, // Không cung cấp
+        CERTIFICATE_OF_OWNERSHIP, // Sổ đỏ / Sổ hồng (Chính chủ)
+        LEASE_CONTRACT, // Hợp đồng thuê nhà (Cho thuê lại)
+        AUTHORIZATION_LETTER // Giấy ủy quyền
     }
 
-    public enum Status {PENDING, ACTIVE, FULL, HIDDEN, EXPIRED, APPROVED, REJECTED, DELETED}
+    public enum Status {
+        PENDING, ACTIVE, FULL, HIDDEN, EXPIRED, APPROVED, REJECTED, DELETED
+    }
 }

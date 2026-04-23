@@ -22,6 +22,7 @@ public class ServicePackage {
 
     // Thêm trường này để hết lỗi setPriorityLevel
     private Integer priorityLevel;
+    private Integer quotaLimit;
 
     @Enumerated(EnumType.STRING)
     private PackageType type; // MEMBERSHIP hoặc ROOM_PROMOTION

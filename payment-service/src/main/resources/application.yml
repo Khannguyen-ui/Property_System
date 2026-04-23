@@ -47,6 +47,9 @@ vnpay:
 
 jwt:
   secret: ${JWT_SECRET}
+services:
+  wallet-service:
+    url: ${WALLET_SERVICE_URL:http://localhost:8089}
 
 
   

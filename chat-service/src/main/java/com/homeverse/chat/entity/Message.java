@@ -1,11 +1,13 @@
 package com.homeverse.chat.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "messages")
+@Document(collection = "messages")
 @Data
 @Builder
 @NoArgsConstructor
@@ -13,31 +15,21 @@ import java.time.LocalDateTime;
 public class Message {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "conversation_id")
-    private Conversation conversation;
+    @Field("conversation_id")
+    private String conversationId;
 
-    // SỬA TẠI ĐÂY: Thay vì dùng object User, ta chỉ lưu senderId kiểu Long
-    @Column(name = "sender_id", nullable = false)
+    @Field("sender_id")
     private Long senderId;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    private String type; // TEXT, IMAGE
+    private String type;
 
-    @Column(name = "is_read")
-    private boolean isRead = false; // Mặc định là chưa đọc
+    @Field("is_read")
+    private boolean isRead = false;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (type == null) type = "TEXT";
-    }
+    @Field("created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

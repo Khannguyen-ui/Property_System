@@ -138,10 +138,29 @@ public class PropertyServiceImpl implements PropertyService {
                 .electricityPrice(dto.getElectricityPrice() != null ? Property.UtilityPriceType.valueOf(dto.getElectricityPrice()) : null)
                 .waterPrice(dto.getWaterPrice() != null ? Property.UtilityPriceType.valueOf(dto.getWaterPrice()) : null)
                 .internetPrice(dto.getInternetPrice() != null ? Property.UtilityPriceType.valueOf(dto.getInternetPrice()) : null)
+                .promotionPackageId(dto.getPromotionPackageId())
+                .promotionPackageName(dto.getPromotionPackageName())
+                .isPromoted(dto.getPromotionPackageId() != null) // Nếu có ID gói thì là true
+                .promotionExpiresAt(dto.getPromotionPackageId() != null && dto.getValidityDays() != null 
+                        ? LocalDateTime.now().plusDays(dto.getValidityDays()) 
+                        : null)
+                // -----------------------
                 .build();
 
+        // 1. Ép lưu Property và đẩy xuống DB ngay
+        Property savedProperty = propertyRepository.saveAndFlush(property); 
 
-        Property savedProperty = propertyRepository.save(property);
+        // 2. Trừ quota và cũng ép lưu ngay
+        quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
+        ownerQuotaRepository.saveAndFlush(quota); 
+
+        log.info("✅ Đã tạo Property thành công. Promotion: {}, Hết hạn: {}", 
+                savedProperty.getIsPromoted(), savedProperty.getPromotionExpiresAt());
+
+        log.info("✅ Đã trừ 1 lượt đăng của User {}. Lượt còn lại: {}", 
+                ownerId, quota.getFreePostsRemaining());
+
+        // 3. Trả về kết quả
         return mapToResponse(savedProperty);
     }
 
@@ -247,16 +266,36 @@ public class PropertyServiceImpl implements PropertyService {
             property.setInternetPrice(Property.UtilityPriceType.valueOf(dto.getInternetPrice()));
 
         // =========================================================
+        // ---> CẬP NHẬT PROMOTION (NẾU CÓ) <---
+        // =========================================================
+        // Lưu ý: Chỉ cập nhật nếu DTO có truyền thông tin gói mới
+        if (dto.getPromotionPackageId() != null) {
+            property.setPromotionPackageId(dto.getPromotionPackageId());
+            property.setPromotionPackageName(dto.getPromotionPackageName());
+            
+            // Nếu bài đăng chưa được promoted hoặc gói cũ đã hết hạn, thì mới set hạn mới
+            // Còn nếu đang còn hạn, việc cộng dồn thường được xử lý qua Kafka thanh toán
+            if (property.getIsPromoted() == null || !property.getIsPromoted() || 
+                property.getPromotionExpiresAt() == null || property.getPromotionExpiresAt().isBefore(LocalDateTime.now())) {
+                
+                property.setIsPromoted(true);
+                if (dto.getValidityDays() != null) {
+                    property.setPromotionExpiresAt(LocalDateTime.now().plusDays(dto.getValidityDays()));
+                }
+            } else {
+                // Nếu đang còn hạn mà update bài đăng, ta chỉ cập nhật tên gói (nếu có thay đổi) 
+                // và giữ nguyên IsPromoted là true.
+                property.setIsPromoted(true); 
+            }
+        }
+
+        // =========================================================
         // ---> PHÁN QUYẾT CUỐI CÙNG (CHỐT STATUS) <---
         // =========================================================
         if (requiresReview) {
-            // Có dấu hiệu "Treo đầu dê bán thịt chó" -> Đưa về PENDING chờ trảm
             property.setStatus(Property.Status.PENDING);
-        } else {
-            // Chỉ sửa lặt vặt (Giá, Mô tả, Ảnh) -> Giữ nguyên trạng thái hiện tại (ACTIVE)
-            // (Không code setStatus ở đây để bảo toàn trạng thái)
         }
-
+        
         Property updatedProperty = propertyRepository.save(property);
         return mapToResponse(updatedProperty);
     }
@@ -512,76 +551,85 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     private PropertyResponseDTO mapToResponse(Property property) {
-        PropertyResponseDTO dto = new PropertyResponseDTO();
+    PropertyResponseDTO dto = new PropertyResponseDTO();
 
-        dto.setId(property.getId());
-        dto.setProjectId(property.getProjectId());
-        dto.setTitle(property.getTitle());
-        dto.setDescription(property.getDescription());
-        dto.setPrice(property.getPrice());
-        dto.setPricePerSqm(property.getPricePerSqm());
-        dto.setArea(property.getArea());
-        dto.setAddress(property.getAddress());
-        dto.setProvince(property.getProvince());
-        dto.setStreet(property.getStreet());
-        dto.setWard(property.getWard());
-        dto.setDistrict(property.getDistrict());
+    dto.setId(property.getId());
+    dto.setProjectId(property.getProjectId());
+    dto.setTitle(property.getTitle());
+    dto.setDescription(property.getDescription());
+    dto.setPrice(property.getPrice());
+    dto.setPricePerSqm(property.getPricePerSqm());
+    dto.setArea(property.getArea());
+    dto.setAddress(property.getAddress());
+    dto.setProvince(property.getProvince());
+    dto.setStreet(property.getStreet());
+    dto.setWard(property.getWard());
+    dto.setDistrict(property.getDistrict());
 
-        if (property.getLocation() != null) {
-            dto.setLongitude(property.getLocation().getX());
-            dto.setLatitude(property.getLocation().getY());
-        }
-        if (property.getPropertyType() != null) {
-            dto.setPropertyType(property.getPropertyType().name());
-        }
-        if (property.getTransactionType() != null) {
-            dto.setTransactionType(property.getTransactionType().name());
-        }
-        if (property.getStatus() != null) {
-            dto.setStatus(property.getStatus().name());
-        }
-        if (property.getLegalDocumentType() != null) {
-            dto.setLegalDocumentType(property.getLegalDocumentType().name());
-        }
-        dto.setCapacity(property.getCapacity());
-
-
-        dto.setImages(property.getImages());
-        dto.setAmenities(property.getAmenities());
-        dto.setVideoUrl(property.getVideoUrl());
-        dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
-        dto.setQuotaDeducted(property.isQuotaDeducted());
-
-
+    if (property.getLocation() != null) {
+        dto.setLongitude(property.getLocation().getX());
+        dto.setLatitude(property.getLocation().getY());
+    }
+    if (property.getPropertyType() != null) {
+        dto.setPropertyType(property.getPropertyType().name());
+    }
+    if (property.getTransactionType() != null) {
+        dto.setTransactionType(property.getTransactionType().name());
+    }
+    if (property.getStatus() != null) {
         dto.setStatus(property.getStatus().name());
-        dto.setOwnerId(property.getOwnerId());
-
-        dto.setCreatedAt(property.getCreatedAt());
-        dto.setExpiresAt(property.getExpiresAt());
-        dto.setBedrooms(property.getBedrooms());
-        dto.setBathrooms(property.getBathrooms());
-        dto.setHasBalcony(property.getHasBalcony());
-
-        if (property.getFurnishingStatus() != null) dto.setFurnishingStatus(property.getFurnishingStatus().name());
-        if (property.getAvailabilityStatus() != null)
-            dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
-        if (property.getElectricityPrice() != null) dto.setElectricityPrice(property.getElectricityPrice().name());
-        if (property.getWaterPrice() != null) dto.setWaterPrice(property.getWaterPrice().name());
-        if (property.getInternetPrice() != null) dto.setInternetPrice(property.getInternetPrice().name());
-
-        return dto;
     }
+    if (property.getLegalDocumentType() != null) {
+        dto.setLegalDocumentType(property.getLegalDocumentType().name());
+    }
+    
+    dto.setCapacity(property.getCapacity());
+    dto.setImages(property.getImages());
+    dto.setAmenities(property.getAmenities());
+    dto.setVideoUrl(property.getVideoUrl());
+    dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
+    dto.setQuotaDeducted(property.isQuotaDeducted());
+
+    // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
+    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+    dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
+    dto.setPromotionPackageId(property.getPromotionPackageId());
+    dto.setPromotionPackageName(property.getPromotionPackageName());
+    // --------------------------------
+
+    dto.setOwnerId(property.getOwnerId());
+    dto.setCreatedAt(property.getCreatedAt());
+    dto.setExpiresAt(property.getExpiresAt());
+    dto.setBedrooms(property.getBedrooms());
+    dto.setBathrooms(property.getBathrooms());
+    dto.setHasBalcony(property.getHasBalcony());
+
+    if (property.getFurnishingStatus() != null) dto.setFurnishingStatus(property.getFurnishingStatus().name());
+    if (property.getAvailabilityStatus() != null)
+        dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
+    if (property.getElectricityPrice() != null) dto.setElectricityPrice(property.getElectricityPrice().name());
+    if (property.getWaterPrice() != null) dto.setWaterPrice(property.getWaterPrice().name());
+    if (property.getInternetPrice() != null) dto.setInternetPrice(property.getInternetPrice().name());
+
+    return dto;
+}
     private PropertyReelResponseDTO toReelDTO(Property property) {
-        PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
-        dto.setId(property.getId());
-        dto.setTitle(property.getTitle());
-        dto.setPrice(property.getPrice());
-        dto.setAddress(property.getAddress());
-        dto.setVideoUrl(property.getVideoUrl());
-        dto.setOwnerSlug(property.getOwnerSlugSnapshot());
-        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
-        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
-        dto.setCreatedAt(property.getCreatedAt());
-        return dto;
-    }
+    PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
+    dto.setId(property.getId());
+    dto.setTitle(property.getTitle());
+    dto.setPrice(property.getPrice());
+    dto.setAddress(property.getAddress());
+    dto.setVideoUrl(property.getVideoUrl());
+    dto.setOwnerSlug(property.getOwnerSlugSnapshot());
+    dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+    dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+    dto.setCreatedAt(property.getCreatedAt());
+
+    // --- BỔ SUNG PROMOTION CHO REEL ---
+    // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
+    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+    // ----------------------------------
+
+    return dto;
+}
 }

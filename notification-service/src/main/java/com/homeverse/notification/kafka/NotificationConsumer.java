@@ -53,6 +53,23 @@ public class NotificationConsumer {
             log.error("Lỗi xử lý Kafka CDC Identity: {}", e.getMessage(), e);
         }
     }
+    @KafkaListener(topics = "notification-topic", groupId = "notification-group")
+public void consumeChatNotification(String message) {
+    try {
+        JsonNode jsonNode = objectMapper.readTree(message);
+        String recipientId = jsonNode.path("receiverId").asText(); 
+        
+        String title = jsonNode.path("title").asText("Tin nhắn mới");
+        String content = jsonNode.path("content").asText();
+        String type = jsonNode.path("type").asText("CHAT");
+
+        if (!recipientId.isEmpty()) {
+            sendNotificationToUser(recipientId, type, title, content);
+        }
+    } catch (Exception e) {
+        log.error("Lỗi parse JSON: {}", e.getMessage());
+    }
+}
 
 
     private void sendNotificationToUser(String userId, String type, String title, String content) {

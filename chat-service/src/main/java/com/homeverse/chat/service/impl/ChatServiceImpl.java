@@ -16,9 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt; // Import đúng chỗ này
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,8 +34,8 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMapper chatMapper;
     private final UserServiceClient userServiceClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    // Tách hàm này ra riêng biệt, không lồng trong hàm khác
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         
@@ -45,18 +44,15 @@ public class ChatServiceImpl implements ChatService {
         }
 
         Jwt jwt = (Jwt) auth.getPrincipal();
-        // Lấy userId từ extraClaims mà Identity Service đã đóng gói
         return jwt.getClaim("userId"); 
     }
 
-
     @Override
-    @Transactional
     public ChatMessageResponse saveMessage(ChatMessageDTO dto) {
-        // Lấy senderId từ Token thay vì tin tưởng hoàn toàn vào DTO để bảo mật
         Long currentUserId = getCurrentUserId();
 
-        Conversation conversation = conversationRepository.findExistingConversation(currentUserId, dto.getReceiverId())
+        Conversation conversation = conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
+                        currentUserId, dto.getReceiverId(), dto.getReceiverId(), currentUserId)
                 .orElseGet(() -> {
                     Conversation newConv = Conversation.builder()
                             .user1Id(currentUserId)
@@ -72,7 +68,7 @@ public class ChatServiceImpl implements ChatService {
         conversationRepository.save(conversation);
 
         Message message = Message.builder()
-                .conversation(conversation)
+                .conversationId(conversation.getId())
                 .senderId(currentUserId)
                 .content(dto.getContent())
                 .type(dto.getType())
@@ -81,6 +77,21 @@ public class ChatServiceImpl implements ChatService {
                 .build();
         
         Message savedMessage = messageRepository.save(message);
+        ChatMessageResponse response = chatMapper.toResponse(savedMessage);
+
+        try {
+            messagingTemplate.convertAndSendToUser(
+                    dto.getReceiverId().toString(), 
+                    "/queue/messages", 
+                    response);
+            
+            messagingTemplate.convertAndSendToUser(
+                    currentUserId.toString(), 
+                    "/queue/messages", 
+                    response);
+        } catch (Exception e) {
+            log.error("WebSocket error: ", e);
+        }
 
         try {
             NotificationEvent event = NotificationEvent.builder()
@@ -95,13 +106,14 @@ public class ChatServiceImpl implements ChatService {
             log.error("Kafka error: ", e);
         }
 
-        return chatMapper.toResponse(savedMessage);
+        return response;
     }
 
     @Override
     public List<ChatMessageResponse> getChatHistory(Long partnerId) {
         Long currentUserId = getCurrentUserId();
-        return conversationRepository.findExistingConversation(currentUserId, partnerId)
+        return conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
+                        currentUserId, partnerId, partnerId, currentUserId)
                 .map(conv -> messageRepository.findByConversationIdOrderByCreatedAtAsc(conv.getId())
                         .stream()
                         .map(chatMapper::toResponse)
@@ -112,11 +124,11 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public List<ConversationResponse> getUserConversations() {
         Long currentUserId = getCurrentUserId();
-        List<Conversation> conversations = conversationRepository.findMyConversations(currentUserId);
+        List<Conversation> conversations = conversationRepository.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(currentUserId, currentUserId);
 
         return conversations.stream().map(c -> {
             Long partnerId = c.getUser1Id().equals(currentUserId) ? c.getUser2Id() : c.getUser1Id();
-            long unreadCount = messageRepository.countUnreadMessages(c.getId(), currentUserId);
+            long unreadCount = messageRepository.countByConversationIdAndIsReadFalseAndSenderIdNot(c.getId(), currentUserId);
 
             String partnerName = "User " + partnerId;
             String partnerAvatar = null;
@@ -129,7 +141,8 @@ public class ChatServiceImpl implements ChatService {
             }
 
             return ConversationResponse.builder()
-                    .id(partnerId)
+                    .conversationId(c.getId())
+                    .partnerId(partnerId)
                     .fullName(partnerName)
                     .avatar(partnerAvatar)
                     .lastMessage(c.getLastMessage())
@@ -140,10 +153,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void createConversationIfNotExists(Long partnerId) {
         Long currentUserId = getCurrentUserId();
-        conversationRepository.findExistingConversation(currentUserId, partnerId)
+        conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
+                        currentUserId, partnerId, partnerId, currentUserId)
                 .orElseGet(() -> conversationRepository.save(Conversation.builder()
                         .user1Id(currentUserId)
                         .user2Id(partnerId)
@@ -153,10 +166,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void markAsRead(Long partnerId) {
         Long currentUserId = getCurrentUserId();
-        conversationRepository.findExistingConversation(currentUserId, partnerId)
+        conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
+                        currentUserId, partnerId, partnerId, currentUserId)
                 .ifPresent(conv -> {
                     List<Message> unread = messageRepository.findByConversationIdAndSenderIdNotAndIsReadFalse(conv.getId(), currentUserId);
                     unread.forEach(m -> m.setRead(true));

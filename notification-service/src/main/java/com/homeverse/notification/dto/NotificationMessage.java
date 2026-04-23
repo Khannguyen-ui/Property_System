@@ -12,8 +12,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationMessage {
-    private String type;
+    private String type;         
+    private String recipientId; 
     private String title;
     private String content;
+
+    private Object metadata;     
+    
     private LocalDateTime timestamp;
 }

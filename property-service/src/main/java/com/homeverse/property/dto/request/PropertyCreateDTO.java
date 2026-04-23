@@ -5,7 +5,8 @@
     import jakarta.validation.constraints.NotNull;
     import lombok.Data;
     import java.math.BigDecimal;
-    import java.util.List;
+import java.time.LocalDateTime;
+import java.util.List;
 
     @Data
     public class PropertyCreateDTO {
@@ -75,4 +76,9 @@
         private String waterPrice;
         private String internetPrice;
         private String legalDocumentType;
+        private Long promotionPackageId;
+        private String promotionPackageName; 
+        private Boolean isPromoted;
+        private LocalDateTime promotionExpiresAt;
+        
     }

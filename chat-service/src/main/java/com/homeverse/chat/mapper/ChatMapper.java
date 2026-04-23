@@ -2,7 +2,9 @@ package com.homeverse.chat.mapper;
 
 import com.homeverse.chat.dto.request.ChatMessageDTO;
 import com.homeverse.chat.dto.response.ChatMessageResponse;
+import com.homeverse.chat.entity.Conversation;
 import com.homeverse.chat.entity.Message;
+import com.homeverse.chat.repository.ConversationRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,11 +15,14 @@ public class ChatMapper {
     @Autowired
     private ModelMapper modelMapper;
 
+    @Autowired
+    private ConversationRepository conversationRepository;
+
     public Message toEntity(ChatMessageDTO dto) {
         if (dto == null) return null;
         Message message = modelMapper.map(dto, Message.class);
-        // Gán cứng ID để chắc chắn không bị trôi dữ liệu
         message.setSenderId(dto.getSenderId());
+        message.setConversationId(dto.getConversationId());
         return message;
     }
 
@@ -31,16 +36,16 @@ public class ChatMapper {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setSenderId(entity.getSenderId());
 
-        // Kiểm tra an toàn cho Conversation
-        if (entity.getConversation() != null) {
-            Long u1 = entity.getConversation().getUser1Id();
-            Long u2 = entity.getConversation().getUser2Id();
-            Long senderId = entity.getSenderId();
+        if (entity.getConversationId() != null) {
+            conversationRepository.findById(entity.getConversationId()).ifPresent(conv -> {
+                Long u1 = conv.getUser1Id();
+                Long u2 = conv.getUser2Id();
+                Long senderId = entity.getSenderId();
 
-            // Nếu người gửi là u1 thì người nhận là u2 và ngược lại
-            if (senderId != null && u1 != null && u2 != null) {
-                dto.setReceiverId(senderId.equals(u1) ? u2 : u1);
-            }
+                if (senderId != null && u1 != null && u2 != null) {
+                    dto.setReceiverId(senderId.equals(u1) ? u2 : u1);
+                }
+            });
         }
 
         return dto;

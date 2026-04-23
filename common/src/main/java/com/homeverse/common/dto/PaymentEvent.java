@@ -22,4 +22,5 @@ public class PaymentEvent {
     private String type;
     private Integer durationDays;
     private Integer priorityLevel;
+    private Integer quotaLimit;
 }

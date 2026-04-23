@@ -1,11 +1,13 @@
 package com.homeverse.chat.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "conversations")
+@Document(collection = "conversations")
 @Data
 @Builder
 @NoArgsConstructor
@@ -13,25 +15,17 @@ import java.time.LocalDateTime;
 public class Conversation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    // SỬA: Không dùng @ManyToOne User, chuyển sang Long để tách biệt service
-    @Column(name = "user1_id", nullable = false)
-    private Long user1Id; 
+    @Field("user1_id")
+    private Long user1Id;
 
-    @Column(name = "user2_id", nullable = false)
+    @Field("user2_id")
     private Long user2Id;
 
-    @Column(name = "last_message", columnDefinition = "TEXT")
+    @Field("last_message")
     private String lastMessage;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Field("updated_at")
+    private LocalDateTime updatedAt = LocalDateTime.now();
 }

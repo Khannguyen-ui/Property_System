@@ -24,13 +24,11 @@ public class PropertyResponseDTO {
     private String ward;
     private String district;
 
-
     private Double latitude;
     private Double longitude;
 
     private String propertyType;
     private Integer capacity;
-
 
     private List<String> images;
     private List<String> amenities;
@@ -53,4 +51,8 @@ public class PropertyResponseDTO {
     private String waterPrice;
     private String internetPrice;
     private String legalDocumentType;
+    private Long promotionPackageId;
+    private String promotionPackageName;
+    private Boolean isPromoted;
+    private LocalDateTime promotionExpiresAt;
 }

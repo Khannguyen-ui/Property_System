@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -30,39 +31,40 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Transactional
     public void buyMembership(Long userId, Long packageId) {
         try {
-        log.info("Đang xử lý Promotion cho User {} - Package {}", userId, packageId);
-        ServicePackage pkg = packageRepository.findById(packageId)
-                .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại"));
+            log.info("Đang xử lý Membership cho User {} - Package {}", userId, packageId);
+            ServicePackage pkg = packageRepository.findById(packageId)
+                    .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại"));
 
-        walletClient.debit(userId, pkg.getPrice());
+            walletClient.debit(userId, pkg.getPrice());
 
-        Transaction trans = Transaction.builder()
-                .userId(userId)
-                .amount(pkg.getPrice())
-                .type(pkg.getType().toString())
-                .description("Mua gói: " + pkg.getName())
-                .status("SUCCESS")
-                .createdAt(LocalDateTime.now())
-                .build();
-        
-        Transaction savedTrans = transactionRepository.save(trans);
+            Transaction trans = Transaction.builder()
+                    .userId(userId)
+                    .amount(pkg.getPrice())
+                    .type(pkg.getType().toString())
+                    .description("Mua gói: " + pkg.getName())
+                    .status("SUCCESS")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            
+            Transaction savedTrans = transactionRepository.save(trans);
 
-        PaymentEvent event = PaymentEvent.builder()
-                .userId(userId)
-                .amount(pkg.getPrice())
-                .packageId(packageId)
-                .packageName(pkg.getName())
-                .transactionId(savedTrans.getId().toString())
-                .type(pkg.getType().toString())
-                .durationDays(pkg.getDurationDays())
-                .priorityLevel(pkg.getPriorityLevel() != null ? pkg.getPriorityLevel() : 0)
-                .build();
+            PaymentEvent event = PaymentEvent.builder()
+                    .userId(userId)
+                    .amount(pkg.getPrice())
+                    .packageId(packageId)
+                    .packageName(pkg.getName())
+                    .transactionId(savedTrans.getId().toString())
+                    .type(pkg.getType().toString())
+                    .durationDays(pkg.getDurationDays())
+                    .priorityLevel(pkg.getPriorityLevel() != null ? pkg.getPriorityLevel() : 0)
+                    .quotaLimit(pkg.getQuotaLimit() != null ? pkg.getQuotaLimit() : 0)
+                    .build();
 
-        paymentProducer.sendPaymentSuccess(event);
+            paymentProducer.sendPaymentSuccess(event);
         } catch (Exception e) {
-        log.error("LỖI CHI TIẾT TẠI ĐÂY NÈ ÂN: ", e); // Dòng này sẽ in ra chính xác lỗi gì
-        throw e;
-    }
+            log.error("LỖI CHI TIẾT TẠI ĐÂY NÈ : ", e);
+            throw e;
+        }
     }
 
     @Override
@@ -93,8 +95,64 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                 .type(PackageType.ROOM_PROMOTION.toString())
                 .durationDays(pkg.getDurationDays())
                 .transactionId(savedTrans.getId().toString())
+                .priorityLevel(pkg.getPriorityLevel() != null ? pkg.getPriorityLevel() : 0)
                 .build();
 
         paymentProducer.sendPaymentSuccess(event);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ServicePackage> getAllPackagesForAdmin() {
+        return packageRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ServicePackage> getAllActivePackages() {
+        return packageRepository.findAll()
+                .stream()
+                .filter(ServicePackage::getActive)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ServicePackage createPackage(ServicePackage pkg) {
+        log.info("Admin đang tạo gói cước mới: {}", pkg.getName());
+        if (pkg.getActive() == null) pkg.setActive(true);
+        return packageRepository.save(pkg);
+    }
+
+    @Override
+    @Transactional
+    public ServicePackage updatePackage(Long id, ServicePackage pkg) {
+        ServicePackage existingPkg = packageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói cước ID: " + id));
+
+        log.info("Admin đang cập nhật gói cước ID: {}", id);
+        
+        existingPkg.setName(pkg.getName());
+        existingPkg.setPrice(pkg.getPrice());
+        existingPkg.setDurationDays(pkg.getDurationDays());
+        existingPkg.setDiscountPercent(pkg.getDiscountPercent());
+        existingPkg.setPriorityLevel(pkg.getPriorityLevel());
+        existingPkg.setQuotaLimit(pkg.getQuotaLimit());
+        existingPkg.setType(pkg.getType());
+        existingPkg.setDescription(pkg.getDescription());
+        existingPkg.setActive(pkg.getActive());
+
+        return packageRepository.save(existingPkg);
+    }
+
+    @Override
+    @Transactional
+    public void deletePackage(Long id) {
+        ServicePackage pkg = packageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói cước ID: " + id));
+
+        log.warn("Admin thực hiện ẩn gói cước ID: {}", id);
+        pkg.setActive(false);
+        packageRepository.save(pkg);
     }
 }
