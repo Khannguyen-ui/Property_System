@@ -8,10 +8,13 @@ import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.dto.response.ReelsFeedResponse;
 import com.homeverse.property.entity.OwnerProfile;
 import com.homeverse.property.entity.OwnerQuota;
+import com.homeverse.property.entity.Project;
+import com.homeverse.property.entity.PromotionQueue;
 import com.homeverse.property.entity.UserPropertyInteraction;
 import com.homeverse.property.repository.AmenityRepository;
 import com.homeverse.property.repository.OwnerQuotaRepository;
 import com.homeverse.property.repository.ProjectRepository;
+import com.homeverse.property.repository.PromotionQueueRepository;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.repository.OwnerProfileRepository;
@@ -47,45 +50,38 @@ public class PropertyServiceImpl implements PropertyService {
     private final OwnerProfileRepository ownerProfileRepository;
     private final com.homeverse.property.repository.InteractionRepository interactionRepository;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    private final PromotionQueueRepository promotionQueueRepository;
 
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-
-    @Override
+@Override
     @Transactional(rollbackFor = Exception.class)
     public PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto) {
-
-
         validatePropertyData(dto);
 
         OwnerQuota quota = ownerQuotaRepository.findById(ownerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         OwnerProfile profile = ownerProfileRepository.findById(ownerId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
         if (quota.getFreePostsRemaining() <= 0) {
-            log.warn("Chủ nhà {} cố tình tạo bài đăng nhưng đã hết lượt!", ownerId);
             throw new AppException(ErrorCode.POST_LIMIT_EXCEEDED);
         }
+
         if (quota.getRole() == null || !quota.getRole().contains("OWNER")) {
-            log.warn("User {} chưa KYC hoặc bị tước quyền cố tình đăng bài!", ownerId);
             throw new AppException(ErrorCode.KYC_NOT_VERIFIED);
         }
 
-        if (dto.getProjectId() != null) {
-            if (!projectRepository.existsById(dto.getProjectId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST);
-            }
-        }
         String snapshotName = null;
         if (dto.getProjectId() != null) {
-            com.homeverse.property.entity.Project project = projectRepository.findById(dto.getProjectId())
+            Project project = projectRepository.findById(dto.getProjectId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
 
-            // Nếu dự án bị khóa, không cho thêm bài mới vào
-            if (project.getStatus() == com.homeverse.property.entity.Project.Status.INACTIVE) {
+            if (project.getStatus() == Project.Status.INACTIVE) {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
             }
             snapshotName = project.getName();
         }
+
         Property.LegalDocumentType legalType = Property.LegalDocumentType.NONE;
         if (dto.getLegalDocumentType() != null) {
             try {
@@ -94,15 +90,11 @@ public class PropertyServiceImpl implements PropertyService {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
             }
         }
-        // 2. Chỉ tạo Point khi tọa độ đã được xác nhận hợp lệ
+
         Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
-
-
         int days = (dto.getValidityDays() != null && dto.getValidityDays() > 0) ? dto.getValidityDays() : 30;
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expirationDate = now.plusDays(days);
 
-        // 4. Khởi tạo Entity (Lưu mặc định là PENDING, không tốn Quota)
         Property property = Property.builder()
                 .projectId(dto.getProjectId())
                 .projectNameSnapshot(snapshotName)
@@ -128,7 +120,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .ownerAvatarSnapshot(profile.getAvatar())
                 .ownerSlugSnapshot(profile.getSlug())
                 .createdAt(now)
-                .expiresAt(expirationDate)
+                .expiresAt(now.plusDays(days))
                 .legalDocumentType(legalType)
                 .bedrooms(dto.getBedrooms() != null ? dto.getBedrooms() : 0)
                 .bathrooms(dto.getBathrooms() != null ? dto.getBathrooms() : 0)
@@ -138,29 +130,16 @@ public class PropertyServiceImpl implements PropertyService {
                 .electricityPrice(dto.getElectricityPrice() != null ? Property.UtilityPriceType.valueOf(dto.getElectricityPrice()) : null)
                 .waterPrice(dto.getWaterPrice() != null ? Property.UtilityPriceType.valueOf(dto.getWaterPrice()) : null)
                 .internetPrice(dto.getInternetPrice() != null ? Property.UtilityPriceType.valueOf(dto.getInternetPrice()) : null)
-                .promotionPackageId(dto.getPromotionPackageId())
-                .promotionPackageName(dto.getPromotionPackageName())
-                .isPromoted(dto.getPromotionPackageId() != null) // Nếu có ID gói thì là true
-                .promotionExpiresAt(dto.getPromotionPackageId() != null && dto.getValidityDays() != null 
-                        ? LocalDateTime.now().plusDays(dto.getValidityDays()) 
-                        : null)
-                // -----------------------
+                .promotionPackageId(null)
+                .promotionPackageName(null)
+                .isPromoted(false)
+                .promotionExpiresAt(null)
+                .isQuotaDeducted(false)
                 .build();
 
-        // 1. Ép lưu Property và đẩy xuống DB ngay
-        Property savedProperty = propertyRepository.saveAndFlush(property); 
+        Property savedProperty = propertyRepository.save(property);
+        log.info("✅ Created Property ID: {}", savedProperty.getId());
 
-        // 2. Trừ quota và cũng ép lưu ngay
-        quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
-        ownerQuotaRepository.saveAndFlush(quota); 
-
-        log.info("✅ Đã tạo Property thành công. Promotion: {}, Hết hạn: {}", 
-                savedProperty.getIsPromoted(), savedProperty.getPromotionExpiresAt());
-
-        log.info("✅ Đã trừ 1 lượt đăng của User {}. Lượt còn lại: {}", 
-                ownerId, quota.getFreePostsRemaining());
-
-        // 3. Trả về kết quả
         return mapToResponse(savedProperty);
     }
 
@@ -175,58 +154,23 @@ public class PropertyServiceImpl implements PropertyService {
         if (!property.getOwnerId().equals(ownerId)) {
             throw new AppException(ErrorCode.NOT_PROPERTY_OWNER);
         }
-        OwnerProfile profile = ownerProfileRepository.findById(ownerId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
         boolean requiresReview = false;
 
-        // 1. Quét rủi ro: Thay đổi vị trí (Địa chỉ, Tọa độ)
         if (!property.getAddress().equals(dto.getAddress().trim()) ||
-                (property.getProvince()!=null && !property.getProvince().equals(dto.getProvince())) ||
-                (property.getStreet() != null && !property.getStreet().equals(dto.getStreet().trim())) ||
-                (property.getWard() != null && !property.getWard().equals(dto.getWard().trim())) ||
-                (property.getDistrict() != null && !property.getDistrict().equals(dto.getDistrict().trim())) ||
+                (property.getProvince() != null && !property.getProvince().equals(dto.getProvince())) ||
                 Double.compare(property.getLocation().getY(), dto.getLatitude()) != 0 ||
                 Double.compare(property.getLocation().getX(), dto.getLongitude()) != 0) {
             requiresReview = true;
-            log.info("Phát hiện đổi Địa chỉ/Tọa độ ở bài đăng {}", id);
         }
 
-        // 2. Quét rủi ro: Thay đổi bản chất BĐS (Loại nhà, Bán/Cho thuê)
-        if (!property.getPropertyType().name().equals(dto.getPropertyType()) ||
-                !property.getTransactionType().name().equals(dto.getTransactionType())) {
-            requiresReview = true;
-            log.info("Phát hiện đổi Loại hình BĐS ở bài đăng {}", id);
-        }
-
-        // 3. Quét rủi ro: Tráo đổi Dự án (Project)
-        Long currentProjectId = property.getProjectId();
-        Long newProjectId = dto.getProjectId();
-        boolean projectChanged = (currentProjectId == null && newProjectId != null) ||
-                (currentProjectId != null && !currentProjectId.equals(newProjectId));
-        if (projectChanged) {
-            requiresReview = true;
-            log.info("Phát hiện đổi Dự án ở bài đăng {}", id);
-        }
-
-        // =========================================================
-        // ---> CẬP NHẬT DỮ LIỆU NHƯ BÌNH THƯỜNG <---
-        // =========================================================
-
-        // Cập nhật Project
-        if (newProjectId != null) {
-            com.homeverse.property.entity.Project project = projectRepository.findById(newProjectId)
+        if (dto.getProjectId() != null) {
+            Project project = projectRepository.findById(dto.getProjectId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
-            if (project.getStatus() == com.homeverse.property.entity.Project.Status.INACTIVE) {
-                throw new AppException(ErrorCode.INVALID_REQUEST);
-            }
-            property.setProjectId(newProjectId);
+            property.setProjectId(dto.getProjectId());
             property.setProjectNameSnapshot(project.getName());
-        } else {
-            property.setProjectId(null);
-            property.setProjectNameSnapshot(null);
         }
 
-        // Cập nhật Tọa độ và các trường Cơ bản
         Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
         property.setLocation(point);
         property.setTitle(dto.getTitle().trim());
@@ -242,64 +186,29 @@ public class PropertyServiceImpl implements PropertyService {
         property.setTransactionType(Property.TransactionType.valueOf(dto.getTransactionType()));
         property.setCapacity(dto.getCapacity());
         property.setImages(dto.getImages());
-        property.setVideoUrl(dto.getVideoUrl());
         property.setAmenities(dto.getAmenities());
-
 
         if (dto.getBedrooms() != null) property.setBedrooms(dto.getBedrooms());
         if (dto.getBathrooms() != null) property.setBathrooms(dto.getBathrooms());
         if (dto.getHasBalcony() != null) property.setHasBalcony(dto.getHasBalcony());
 
-        if (dto.getLegalDocumentType() == null || dto.getLegalDocumentType().trim().isEmpty() || dto.getLegalDocumentType().equals("NONE")) {
-            property.setLegalDocumentType(Property.LegalDocumentType.NONE);
-        } else {
-            property.setLegalDocumentType(Property.LegalDocumentType.valueOf(dto.getLegalDocumentType()));
-        }
-        if (dto.getFurnishingStatus() != null)
-            property.setFurnishingStatus(Property.FurnishingStatus.valueOf(dto.getFurnishingStatus()));
-        if (dto.getAvailabilityStatus() != null)
-            property.setAvailabilityStatus(Property.AvailabilityStatus.valueOf(dto.getAvailabilityStatus()));
-        if (dto.getElectricityPrice() != null)
-            property.setElectricityPrice(Property.UtilityPriceType.valueOf(dto.getElectricityPrice()));
-        if (dto.getWaterPrice() != null) property.setWaterPrice(Property.UtilityPriceType.valueOf(dto.getWaterPrice()));
-        if (dto.getInternetPrice() != null)
-            property.setInternetPrice(Property.UtilityPriceType.valueOf(dto.getInternetPrice()));
-
-        // =========================================================
-        // ---> CẬP NHẬT PROMOTION (NẾU CÓ) <---
-        // =========================================================
-        // Lưu ý: Chỉ cập nhật nếu DTO có truyền thông tin gói mới
-        if (dto.getPromotionPackageId() != null) {
-            property.setPromotionPackageId(dto.getPromotionPackageId());
-            property.setPromotionPackageName(dto.getPromotionPackageName());
-            
-            // Nếu bài đăng chưa được promoted hoặc gói cũ đã hết hạn, thì mới set hạn mới
-            // Còn nếu đang còn hạn, việc cộng dồn thường được xử lý qua Kafka thanh toán
-            if (property.getIsPromoted() == null || !property.getIsPromoted() || 
-                property.getPromotionExpiresAt() == null || property.getPromotionExpiresAt().isBefore(LocalDateTime.now())) {
-                
-                property.setIsPromoted(true);
-                if (dto.getValidityDays() != null) {
-                    property.setPromotionExpiresAt(LocalDateTime.now().plusDays(dto.getValidityDays()));
-                }
-            } else {
-                // Nếu đang còn hạn mà update bài đăng, ta chỉ cập nhật tên gói (nếu có thay đổi) 
-                // và giữ nguyên IsPromoted là true.
-                property.setIsPromoted(true); 
-            }
-        }
-
-        // =========================================================
-        // ---> PHÁN QUYẾT CUỐI CÙNG (CHỐT STATUS) <---
-        // =========================================================
         if (requiresReview) {
             property.setStatus(Property.Status.PENDING);
+            property.setIsPromoted(false);
+            property.setPromotionPackageId(null);
+            property.setPromotionPackageName(null);
+            property.setPromotionExpiresAt(null);
+
+            promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDesc(id, PromotionQueue.PromotionStatus.ACTIVE)
+                    .ifPresent(active -> {
+                        active.setStatus(PromotionQueue.PromotionStatus.WAITING);
+                        promotionQueueRepository.save(active);
+                    });
         }
-        
+
         Property updatedProperty = propertyRepository.save(property);
         return mapToResponse(updatedProperty);
     }
-
 
     @Override
     @Transactional(rollbackFor = Exception.class)

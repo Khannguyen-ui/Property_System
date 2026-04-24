@@ -2,6 +2,9 @@ package com.homeverse.property.kafka.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homeverse.common.dto.PaymentEvent;
+import com.homeverse.property.entity.Property;
+import com.homeverse.property.entity.PromotionQueue;
+import com.homeverse.property.repository.PromotionQueueRepository;
 import com.homeverse.property.repository.PropertyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,57 +19,70 @@ import java.time.LocalDateTime;
 @Slf4j
 public class PromotionConsumer {
 
+    private final PromotionQueueRepository promotionQueueRepository;
     private final PropertyRepository propertyRepository;
     private final ObjectMapper objectMapper;
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     @KafkaListener(topics = "payment-success-topic", groupId = "property-promotion-group-v3")
     public void consumePromotion(String message) {
         log.info("🔥 [KAFKA-RECEIVE] Tin nhắn: {}", message);
-        
+
         try {
             PaymentEvent event = objectMapper.readValue(message, PaymentEvent.class);
 
-            if ("MEMBERSHIP".equals(event.getType())) {
-                log.info("ℹ️ [SKIP] Loại MEMBERSHIP được xử lý bởi QuotaConsumer.");
-                return;
-            }
-
             if (!"ROOM_PROMOTION".equals(event.getType())) {
-                log.warn("ℹ️ [SKIP] Type {} không thuộc phạm vi xử lý.", event.getType());
                 return;
             }
 
-            if (event.getRoomId() == null) {
-                log.error("⚠️ [ERROR] RoomId null trong tin nhắn ROOM_PROMOTION!");
-                return;
-            }
+            Property property = propertyRepository.findById(event.getRoomId())
+                    .orElseThrow(() -> new RuntimeException("Property not found ID: " + event.getRoomId()));
 
-            log.info("🔍 [DB-SEARCH] Tìm Property ID: {}", event.getRoomId());
-            
-            propertyRepository.findById(event.getRoomId()).ifPresentOrElse(property -> {
-                log.info("🏠 [DB-FOUND] Đang xử lý: {}. Gói: {}", property.getTitle(), event.getPackageName());
+            PromotionQueue newQueueItem = PromotionQueue.builder()
+                    .propertyId(event.getRoomId())
+                    .userId(event.getUserId())
+                    .packageId(event.getPackageId())
+                    .packageName(event.getPackageName())
+                    .priorityLevel(event.getPriorityLevel())
+                    .durationDays(event.getDurationDays())
+                    .amount(event.getAmount())
+                    .transactionId(event.getTransactionId())
+                    .status(PromotionQueue.PromotionStatus.WAITING)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            boolean hasActive = promotionQueueRepository
+                    .findFirstByPropertyIdAndStatusOrderByPriorityLevelDesc(event.getRoomId(),
+                            PromotionQueue.PromotionStatus.ACTIVE)
+                    .isPresent();
+
+            if (!hasActive && property.getStatus() == Property.Status.ACTIVE) {
+                LocalDateTime now = LocalDateTime.now();
+                newQueueItem.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
+                newQueueItem.setActivatedAt(now);
+                newQueueItem.setExpiresAt(now.plusDays(event.getDurationDays()));
 
                 property.setIsPromoted(true);
-                property.setPromotionPackageName(event.getPackageName()); 
                 property.setPromotionPackageId(event.getPackageId());
+                property.setPromotionPackageName(event.getPackageName());
+                property.setPromotionExpiresAt(newQueueItem.getExpiresAt());
                 
-                LocalDateTime now = LocalDateTime.now();
-                if (property.getPromotionExpiresAt() != null && property.getPromotionExpiresAt().isAfter(now)) {
-                    property.setPromotionExpiresAt(property.getPromotionExpiresAt().plusDays(event.getDurationDays()));
-                    log.info("➕ [EXTEND] Hạn mới: {}", property.getPromotionExpiresAt());
-                } else {
-                    property.setPromotionExpiresAt(now.plusDays(event.getDurationDays()));
-                    log.info("✨ [ACTIVATE] Hạn đến: {}", property.getPromotionExpiresAt());
-                }
-                
-                propertyRepository.save(property);
-                log.info("✅ [SUCCESS] Đã cập nhật gói dịch vụ cho: {}", property.getTitle());
-                
-            }, () -> log.error("❌ [NOT-FOUND] Không tìm thấy bài đăng ID: {}", event.getRoomId()));
+                log.info("✨ [ACTIVATE-NOW] Activated VIP for ACTIVE property {}", event.getRoomId());
+            } else {
+                log.info("⏳ [QUEUE] Property is PENDING or has ACTIVE package, queued for bài {}", event.getRoomId());
+            }
+
+            property.setQuotaDeducted(true);
+            
+            propertyRepository.saveAndFlush(property);
+            promotionQueueRepository.save(newQueueItem);
+
+            log.info("✅ [SUCCESS] ID: {}, is_quota_deducted: {}, is_promoted: {}", 
+                    property.getId(), property.isQuotaDeducted(), property.getIsPromoted());
 
         } catch (Exception e) {
-            log.error("💥 [ERROR] Lỗi xử lý Promotion: {}", e.getMessage());
+            log.error("💥 [ERROR] Promotion processing failed: {}", e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 }

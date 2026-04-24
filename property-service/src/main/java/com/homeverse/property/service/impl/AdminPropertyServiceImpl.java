@@ -1,13 +1,16 @@
 package com.homeverse.property.service.impl;
 
+import com.homeverse.common.dto.RefundEvent;
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.entity.OutboxEvent;
 import com.homeverse.property.entity.OwnerQuota;
+import com.homeverse.property.entity.PromotionQueue;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.repository.OutboxRepository;
 import com.homeverse.property.repository.OwnerQuotaRepository;
+import com.homeverse.property.repository.PromotionQueueRepository;
 import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.service.AdminPropertyService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -28,7 +32,8 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     private final PropertyRepository propertyRepository;
     private final OwnerQuotaRepository ownerQuotaRepository;
     private final OutboxRepository outboxRepository;
-
+    private final PromotionQueueRepository promotionQueueRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     // ==========================================
     // 1. XEM DANH SÁCH (CÓ BỘ LỌC)
     // ==========================================
@@ -47,7 +52,8 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
             }
         }
 
-        // Nếu không truyền status -> Lấy toàn bộ (Bỏ qua thùng rác nhờ @SQLRestriction trên Entity)
+        // Nếu không truyền status -> Lấy toàn bộ (Bỏ qua thùng rác nhờ @SQLRestriction
+        // trên Entity)
         return propertyRepository.findAll(pageable).map(this::mapToResponse);
     }
 
@@ -62,63 +68,83 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         return mapToResponse(property);
     }
 
-
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updatePropertyStatus(Long adminId, Long id, String statusStr) {
-        Property property = propertyRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
+@Transactional(rollbackFor = Exception.class)
+public void updatePropertyStatus(Long adminId, Long id, String statusStr) {
+    Property property = propertyRepository.findById(id)
+            .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
 
-        try {
-            Property.Status newStatus = Property.Status.valueOf(statusStr.toUpperCase());
-            Property.Status oldStatus = property.getStatus();
+    try {
+        Property.Status newStatus = Property.Status.valueOf(statusStr.toUpperCase());
+        Property.Status oldStatus = property.getStatus();
 
-            if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.ACTIVE) {
+        if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.ACTIVE) {
+            if (!property.isQuotaDeducted()) {
+                OwnerQuota quota = ownerQuotaRepository.findById(property.getOwnerId())
+                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
-                // BẮT ĐẦU VÁ LỖI: Chỉ trừ tiền nếu bài này chưa từng bị trừ (Đăng mới)
-                if (!property.isQuotaDeducted()) {
-                    OwnerQuota quota = ownerQuotaRepository.findById(property.getOwnerId())
-                            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-                    if (quota.getFreePostsRemaining() <= 0) {
-                        throw new AppException(ErrorCode.POST_LIMIT_EXCEEDED);
-                    }
-
-                    // 1. Trừ Local
-                    quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
-                    ownerQuotaRepository.save(quota);
-
-                    // 2. Bắn Kafka Outbox
-                    OutboxEvent event = OutboxEvent.builder()
-                            .topic("deduct-quota-topic")
-                            .payload(property.getOwnerId().toString())
-                            .status("PENDING")
-                            .createdAt(LocalDateTime.now())
-                            .build();
-                    outboxRepository.save(event);
-
-                    // 3. Đánh dấu bài này đã thu phí rồi, lần sau không thu nữa!
-                    property.setQuotaDeducted(true);
-
-                    log.info("Admin {} duyệt bài MỚI ID {}: Đã lưu Outbox chờ trừ lượt", adminId, id);
-                } else {
-                    log.info("Admin {} duyệt bài UPDATE ID {}: Bài đã trả phí, không trừ thêm lượt", adminId, id);
+                if (quota.getFreePostsRemaining() <= 0) {
+                    throw new AppException(ErrorCode.POST_LIMIT_EXCEEDED);
                 }
-                // KẾT THÚC VÁ LỖI
 
-                // Cập nhật trạng thái và lưu Property
-                property.setStatus(newStatus);
-                propertyRepository.save(property);
-
-            } else {
-                property.setStatus(newStatus);
-                propertyRepository.save(property);
-                log.info("Admin {} đổi trạng thái bài ID {} thành {}", adminId, id, newStatus);
+                quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
+                ownerQuotaRepository.save(quota);
+                property.setQuotaDeducted(true);
             }
-        } catch (IllegalArgumentException e) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+
+            promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
+                    id, PromotionQueue.PromotionStatus.WAITING).ifPresent(nextQueue -> {
+                LocalDateTime now = LocalDateTime.now();
+                nextQueue.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
+                nextQueue.setActivatedAt(now);
+                nextQueue.setExpiresAt(now.plusDays(nextQueue.getDurationDays()));
+                promotionQueueRepository.save(nextQueue);
+
+                property.setIsPromoted(true);
+                property.setPromotionPackageId(nextQueue.getPackageId());
+                property.setPromotionPackageName(nextQueue.getPackageName());
+                property.setPromotionExpiresAt(nextQueue.getExpiresAt());
+            });
+        } 
+        else if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.REJECTED) {
+            
+            List<PromotionQueue> waitingQueues = promotionQueueRepository.findByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
+                    id, PromotionQueue.PromotionStatus.WAITING);
+
+            for (PromotionQueue queue : waitingQueues) {
+                RefundEvent refundEvent = RefundEvent.builder()
+                        .userId(property.getOwnerId())
+                        .amount(queue.getAmount())
+                        .transactionId(queue.getTransactionId())
+                        .reason("Admin rejected property ID: " + id)
+                        .build();
+
+                outboxRepository.save(OutboxEvent.builder()
+                        .topic("refund-payment-topic")
+                        .payload(objectMapper.writeValueAsString(refundEvent))
+                        .status("PENDING")
+                        .createdAt(LocalDateTime.now())
+                        .build());
+
+                queue.setStatus(PromotionQueue.PromotionStatus.CANCELLED);
+                promotionQueueRepository.save(queue);
+            }
+
+            if (property.isQuotaDeducted()) {
+                property.setQuotaDeducted(false);
+            }
+
+            log.info("🚫 Admin rejected Property ID {}: Refund processed and promotions cancelled.", id);
         }
+
+        property.setStatus(newStatus);
+        propertyRepository.saveAndFlush(property);
+
+    } catch (Exception e) {
+        log.error("Error updating property status: ", e);
+        throw new AppException(ErrorCode.INVALID_REQUEST);
     }
+}
 
     // ==========================================
     // 4. XÓA MỀM (GỠ BÀI VI PHẠM)
