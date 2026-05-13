@@ -82,16 +82,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 3. CẤP QUYỀN ĐI TIẾP VÀO BÊN TRONG
                 // =========================================================
                 if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    // Dùng userId làm định danh chính (principal) để Controller dễ lấy ra dùng
-                    String principal = (userId != null) ? userId : userEmail;
+                    String principal = userEmail;
 
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             principal,
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                    );
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.info("Xác thực thành công cho ID: {} (Email: {}, Role: {})", userId, userEmail, role);
+                    log.info("Xác thực thành công cho Email: {} (ID: {}, Role: {})", userEmail, userId, role);
                 }
             }
         } catch (Exception e) {

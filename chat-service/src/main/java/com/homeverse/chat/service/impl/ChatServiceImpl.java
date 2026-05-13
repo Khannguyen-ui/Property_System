@@ -36,17 +36,28 @@ public class ChatServiceImpl implements ChatService {
     private final UserServiceClient userServiceClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    // Tách hàm này ra riêng biệt, không lồng trong hàm khác
+
+    // Sửa lại hàm này trong ChatServiceImpl.java
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        
-        if (auth == null || !(auth.getPrincipal() instanceof Jwt)) {
-            throw new RuntimeException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng!");
+
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("Chưa xác thực (Không tìm thấy Authentication)!");
         }
 
-        Jwt jwt = (Jwt) auth.getPrincipal();
-        // Lấy userId từ extraClaims mà Identity Service đã đóng gói
-        return jwt.getClaim("userId"); 
+        Object principal = auth.getPrincipal();
+
+        // 1. Trường hợp gọi qua HTTP REST (Principal là Jwt)
+        if (principal instanceof Jwt jwt) {
+            Object userIdClaim = jwt.getClaim("userId");
+            return Long.valueOf(userIdClaim.toString());
+        }
+        // 2. Trường hợp gọi qua WebSocket (Principal là String chứa userId)
+        else if (principal instanceof String userIdStr) {
+            return Long.valueOf(userIdStr);
+        }
+
+        throw new RuntimeException("Không thể trích xuất UserId từ Token!");
     }
 
 

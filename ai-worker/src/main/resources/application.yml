@@ -1,0 +1,59 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.vectorstore.elasticsearch.ElasticsearchVectorStoreAutoConfiguration
+      - org.springframework.ai.autoconfigure.retry.SpringAiRetryAutoConfiguration
+  main:
+    web-application-type: none
+
+  application:
+    name: ai-worker-service
+
+  config:
+    import: optional:file:.env[.properties]
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: ai-worker-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  elasticsearch:
+    uris: ${SPRING_ELASTICSEARCH_URIS:${ELASTIC_CLOUD_URI}}
+    api-key: ${SPRING_ELASTICSEARCH_API_KEY:${ELASTIC_CLOUD_API_KEY}}
+
+  ai:
+    vectorstore:
+      elasticsearch:
+        initialize-schema: true
+        index-name: homeverse-properties-vector
+        dimensions: 768
+        similarity: cosine
+resilience4j.ratelimiter:
+  instances:
+    geminiApi:
+      limitForPeriod: 5
+      limitRefreshPeriod: 60s
+      timeoutDuration: 15s
+
+resilience4j.retry:
+  instances:
+    geminiApi:
+      maxAttempts: 3
+      waitDuration: 5s
+      enableExponentialBackoff: true
+      retryExceptions:
+        - org.springframework.web.client.HttpStatusCodeException
+        - java.util.concurrent.TimeoutException
+gemini:
+  api-key: ${GEMINI_API_KEY}

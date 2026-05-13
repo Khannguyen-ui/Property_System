@@ -6,6 +6,7 @@ import com.homeverse.identity.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.homeverse.identity.dto.response.AdminUserResponse;
 
 import java.util.List;
 
@@ -65,6 +66,12 @@ public class AdminController {
         adminService.rejectKyc(id, reason);
         return ApiResponse.<String>builder()
                 .result("Đã từ chối hồ sơ KYC. Lý do: " + reason)
+                .build();
+    }
+    @GetMapping
+    public ApiResponse<List<AdminUserResponse>> getAllUsers() {
+        return ApiResponse.<List<AdminUserResponse>>builder()
+                .result(adminService.getAllUsers())
                 .build();
     }
 }
