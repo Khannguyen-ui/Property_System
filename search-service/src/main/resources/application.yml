@@ -7,7 +7,7 @@ spring:
 
   elasticsearch:
     uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
-    api-key: ${SPRING_ELASTICSEARCH_API_KEY}
+    api-key: ${ELASTIC_CLOUD_API_KEY}
     connection-timeout: 10s
     socket-timeout: 60s
 

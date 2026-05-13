@@ -1,15 +1,20 @@
 package com.homeverse.chat.controller;
 
+import com.homeverse.chat.dto.ai.AiChatRequest;
 import com.homeverse.chat.dto.request.ChatMessageDTO;
 import com.homeverse.chat.dto.response.ChatMessageResponse;
 import com.homeverse.chat.dto.response.ConversationResponse;
 import com.homeverse.chat.service.ChatService; // Import Interface
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
 
 import java.util.List;
 import java.util.Map;
@@ -20,7 +25,8 @@ import java.util.Map;
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatService chatService; // Dùng Interface
+    private final ChatService chatService;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     // ========================================================================
     // 1. WEBSOCKET HANDLER
@@ -82,5 +88,49 @@ public class ChatController {
     public ResponseEntity<Void> markAsRead(@PathVariable Long partnerId) {
         chatService.markAsRead(partnerId);
         return ResponseEntity.ok().build();
+    }
+    @PostMapping("/api/chat/test-ai-flow")
+    public ResponseEntity<String> testAiFlowFromPostman(@RequestBody AiChatRequest request, Principal principal) {
+        // 1. Chặn cửa nếu Postman không gửi JWT Token
+        if (principal == null) {
+            return ResponseEntity.status(401).body("Lỗi: Sếp chưa gắn Bearer Token vào Postman!");
+        }
+
+        // 2. Lấy User ID thật từ Token
+        String currentUserId = principal.getName();
+        request.setUserId(currentUserId);
+
+        if(request.getConversationId() == null || request.getConversationId().isEmpty()) {
+            request.setConversationId("conv-postman-test");
+        }
+
+        // 3. Bắn thẳng vào Kafka y hệt như WebSocket làm
+        kafkaTemplate.send("ai-requests", currentUserId, request);
+
+        return ResponseEntity.ok("🚀 Đã ném câu hỏi của User [" + currentUserId + "] vào Kafka! Sếp mở log Docker ra xem AI Worker chạy nhé.");
+    }
+
+    @MessageMapping("/ai-chat")
+    public void processAiMessage(@Payload AiChatRequest aiRequest, Principal principal) {
+
+        // 1. LỚP GIÁP BẢO VỆ (Chuẩn Spring Docs)
+        // Nếu không có thông tin định danh -> Đá văng ngay lập tức
+        if (principal == null) {
+            throw new IllegalArgumentException("Truy cập trái phép! Lỗi xác thực WebSocket.");
+            // (Nếu sếp có cấu hình @MessageExceptionHandler, nó sẽ bắt lỗi này báo về FE)
+        }
+
+        // 2. Lấy User ID an toàn
+        String currentUserId = principal.getName();
+        aiRequest.setUserId(currentUserId);
+
+        // 3. Khôi phục logic Conversation ID (Tránh Redis bị ngáo)
+        if(aiRequest.getConversationId() == null || aiRequest.getConversationId().isEmpty()) {
+            // Tự động sinh ra 1 ID hội thoại mặc định cho user này nếu FE quên gửi
+            aiRequest.setConversationId("conv-" + currentUserId);
+        }
+
+        // 4. Bắn vào Kafka
+        kafkaTemplate.send("ai-requests", currentUserId, aiRequest);
     }
 }

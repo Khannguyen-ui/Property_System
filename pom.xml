@@ -28,6 +28,8 @@
         <module>chat-service</module>
 
         <module>search-service</module>
+        <module>ai-worker</module>
+
 
     </modules>
 

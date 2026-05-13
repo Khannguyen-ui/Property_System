@@ -26,6 +26,7 @@ public class CustomerController {
         customerService.initCustomerProfile(dto);
         return ApiResponse.<String>builder().result("Đã khởi tạo hồ sơ rỗng").build();
     }
+
     @PutMapping("/{id}/email")
     public ApiResponse<String> updateEmail(@PathVariable("id") Long id, @RequestParam("newEmail") String newEmail) {
         customerService.updateEmailCustomer(id, newEmail);
@@ -72,6 +73,7 @@ public class CustomerController {
                 .result(customerService.uploadBanner(file))
                 .build();
     }
+
     @PostMapping(value = "/kyc/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<KycOcrResponseDTO> scanCitizenId(@RequestPart("image") MultipartFile image) {
         return ApiResponse.<KycOcrResponseDTO>builder()
@@ -94,8 +96,9 @@ public class CustomerController {
                 .result("Hồ sơ KYC đã được gửi thành công! Vui lòng chờ quản trị viên phê duyệt.")
                 .build();
     }
-   @GetMapping("/{id}/summary")
-public ResponseEntity<UserSummaryDTO> getUserSummary(@PathVariable Long id) {
-    return ResponseEntity.ok(customerService.getUserSummary(id));
-}
+
+    @GetMapping("/{id}/summary")
+    public ResponseEntity<UserSummaryDTO> getUserSummary(@PathVariable Long id) {
+        return ResponseEntity.ok(customerService.getUserSummary(id));
+    }
 }

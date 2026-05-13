@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.kafka.core.KafkaTemplate;
+
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -67,6 +68,7 @@ public class CustomerServiceImpl implements CustomerService {
         return customerRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Hồ sơ khách hàng không tồn tại!"));
     }
+
 
     @Override
     @Transactional
@@ -283,7 +285,7 @@ public class CustomerServiceImpl implements CustomerService {
                     System.out.println("Đã bắn event KYC thành công cho: " + customer.getEmail());
                 });
 
-            }else {
+            } else {
                 customer.setKycStatus("PENDING");
             }
             redisTemplate.delete(redisKey);
@@ -325,15 +327,16 @@ public class CustomerServiceImpl implements CustomerService {
 
         return slug + "-" + randomTail;
     }
-    @Override
-public UserSummaryDTO getUserSummary(Long id) {
-    Customer customer = customerRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
 
-    return UserSummaryDTO.builder()
-            .id(customer.getId())
-            .fullName(customer.getFullName())
-            .avatarUrl(customer.getAvatarUrl()) // Lấy đúng field avatarUrl từ Entity của bạn
-            .build();
-}
+    @Override
+    public UserSummaryDTO getUserSummary(Long id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+
+        return UserSummaryDTO.builder()
+                .id(customer.getId())
+                .fullName(customer.getFullName())
+                .avatarUrl(customer.getAvatarUrl()) // Lấy đúng field avatarUrl từ Entity của bạn
+                .build();
+    }
 }

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.homeverse.identity.entity.KycAuditLog;
 import com.homeverse.identity.repository.KycAuditLogRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.homeverse.identity.dto.response.AdminUserResponse;
+
 
 import java.util.List;
 
@@ -43,6 +45,11 @@ public class AdminServiceImpl implements AdminService {
     @Transactional
     public void deleteUser(Long userId) {
         UserCredential user = findUserById(userId);
+
+        if (user.getRole() == UserCredential.Role.ADMIN) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
         userRepository.delete(user);
     }
 
@@ -93,5 +100,28 @@ public class AdminServiceImpl implements AdminService {
         KycAuditLog log = KycAuditLog.builder().userId(userId).action("MANUAL_REJECT").performedBy(adminEmail).reason(reason).build();
         auditLogRepository.save(log);
 
+    }
+
+    @Override
+    public List<AdminUserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .filter(user -> user.getRole() != UserCredential.Role.ADMIN)
+                .map(this::mapToAdminUserResponse)
+                .toList();
+    }
+
+
+    private AdminUserResponse mapToAdminUserResponse(UserCredential user) {
+        return AdminUserResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .kycStatus(user.getKycStatus())
+                .active(user.isActive())
+                .createdAt(user.getCreatedAt())
+                .freePostsRemaining(user.getFreePostsRemaining())
+                .build();
     }
 }
