@@ -68,7 +68,7 @@ public class AdminController {
                 .result("Đã từ chối hồ sơ KYC. Lý do: " + reason)
                 .build();
     }
-    @GetMapping
+    @GetMapping("/all")
     public ApiResponse<List<AdminUserResponse>> getAllUsers() {
         return ApiResponse.<List<AdminUserResponse>>builder()
                 .result(adminService.getAllUsers())
