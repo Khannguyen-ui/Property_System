@@ -320,11 +320,21 @@ public class PropertyServiceImpl implements PropertyService {
         }
 
         // 2. Query data từ Database
-        List<Property> properties = propertyRepository.findReelsFeed(
-                Property.Status.ACTIVE,
-                lastCreatedAt,
-                lastId,
-                size);
+        List<Property> properties;
+
+        if (lastCreatedAt == null || lastId == null) {
+            properties = propertyRepository.findFirstReelsFeed(
+                    Property.Status.ACTIVE.name(),
+                    size
+            );
+        } else {
+            properties = propertyRepository.findNextReelsFeed(
+                    Property.Status.ACTIVE.name(),
+                    lastCreatedAt,
+                    lastId,
+                    size
+            );
+        }
 
         // Thoát sớm nếu không có dữ liệu để tiết kiệm tài nguyên
         if (properties.isEmpty()) {

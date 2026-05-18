@@ -21,7 +21,6 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     Optional<Property> findDeletedById(@Param("id") Long id);
 
 
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = "DELETE FROM properties WHERE id = :id", nativeQuery = true)
     void hardDeleteById(@Param("id") Long id);
@@ -30,7 +29,6 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = :id", nativeQuery = true)
     void restoreById(@Param("id") Long id);
-
 
 
     @Query(
@@ -42,11 +40,15 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             @Param("ownerId") Long ownerId,
             org.springframework.data.domain.Pageable pageable
     );
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = "UPDATE properties SET project_id = NULL WHERE project_id = :projectId", nativeQuery = true)
     void detachPropertiesFromProject(@Param("projectId") Long projectId);
+
     Page<Property> findByStatus(Property.Status status, Pageable pageable);
+
     Optional<Property> findByIdAndStatus(Long id, Property.Status status);
+
     // 1. Lấy toàn bộ thùng rác (Bất chấp của ai)
     @Query(value = "SELECT * FROM properties WHERE status = 'DELETED'",
             countQuery = "SELECT count(*) FROM properties WHERE status = 'DELETED'",
@@ -75,23 +77,37 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     );
 
 
+    @Query(value = """
+    SELECT * FROM properties p
+    WHERE p.status = :status
+      AND p.video_url IS NOT NULL
+      AND p.video_url <> ''
+    ORDER BY p.created_at DESC, p.id DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+    List<Property> findFirstReelsFeed(
+            @Param("status") String status,
+            @Param("limit") int limit
+    );
 
     @Query(value = """
-    SELECT * FROM property p 
-    WHERE p.status = :status 
-      AND p.video_url IS NOT NULL 
-      AND p.video_url != ''
-      AND (:lastCreatedAt IS NULL 
-           OR p.created_at < :lastCreatedAt 
-           OR (p.created_at = :lastCreatedAt AND p.id < :lastId))
+    SELECT * FROM properties p
+    WHERE p.status = :status
+      AND p.video_url IS NOT NULL
+      AND p.video_url <> ''
+      AND (
+            p.created_at < :lastCreatedAt
+            OR (p.created_at = :lastCreatedAt AND p.id < :lastId)
+          )
     ORDER BY p.created_at DESC, p.id DESC
-    FETCH FIRST :limit ROWS ONLY
+    LIMIT :limit
     """, nativeQuery = true)
-    List<Property> findReelsFeed(
-            @Param("status") Property.Status status,
+    List<Property> findNextReelsFeed(
+            @Param("status") String status,
             @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
             @Param("lastId") Long lastId,
-            @Param("limit") int limit);
+            @Param("limit") int limit
+    );
     // 2. Dành cho màn hình Xem trang cá nhân (Lấy tất cả bài của 1 User)
     org.springframework.data.domain.Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(Long ownerId, Property.Status status, org.springframework.data.domain.Pageable pageable);
 
