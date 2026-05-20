@@ -38,6 +38,7 @@ spring:
 homeverse:
   services:
     identity: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+    recommend-service:url: http://recommend-service:8092
 
 jwt:
   secret: ${JWT_SECRET}

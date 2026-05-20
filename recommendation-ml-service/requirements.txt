@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+lightgbm
+pandas
+scikit-learn
+redis
+kafka-python
+numpy
+psycopg2-binary
+joblib
+schedule

@@ -29,6 +29,7 @@
 
         <module>search-service</module>
         <module>ai-worker</module>
+        <module>recommend-service</module>
 
 
     </modules>

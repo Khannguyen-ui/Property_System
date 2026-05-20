@@ -82,6 +82,7 @@ public class PromotionConsumer {
 
         } catch (Exception e) {
             log.error("💥 [ERROR] Promotion processing failed: {}", e.getMessage());
+            log.info("PROMOTION MESSAGE = {}", message);
             throw new RuntimeException(e);
         }
     }

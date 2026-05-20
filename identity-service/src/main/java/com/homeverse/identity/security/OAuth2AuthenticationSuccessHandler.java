@@ -44,7 +44,7 @@ public void onAuthenticationSuccess(HttpServletRequest request, HttpServletRespo
     // 3. Tạo Token xịn
     String token = jwtUtils.generateToken(extraClaims, user);
 
-    String targetUrl = "http://localhost:3000/login-success?token=" + token;
+    String targetUrl = "http://localhost:5173/login-success?token=" + token;
     
     getRedirectStrategy().sendRedirect(request, response, targetUrl);
 }

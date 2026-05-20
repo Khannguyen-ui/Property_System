@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: payment-service
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
@@ -47,9 +51,10 @@ vnpay:
 
 jwt:
   secret: ${JWT_SECRET}
+
 services:
   wallet-service:
-    url: ${WALLET_SERVICE_URL:http://localhost:8089}
+    url: ${WALLET_SERVICE_URL:http://wallet-service:8089}
 
 
   

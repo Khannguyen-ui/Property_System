@@ -21,16 +21,26 @@ public class MediaController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "folder", defaultValue = "general") String folder) throws IOException {
 
-        String imageUrl = mediaService.uploadImage(file, folder);
+        String contentType = file.getContentType();
+
+        String mediaUrl;
+
+        if (contentType != null && contentType.startsWith("video/")) {
+            mediaUrl = mediaService.uploadVideo(file, folder);
+        } else {
+            mediaUrl = mediaService.uploadImage(file, folder);
+        }
 
         return ApiResponse.<String>builder()
-                .result(imageUrl)
+                .result(mediaUrl)
                 .build();
     }
+
     @PostMapping("/upload-multiple")
     public ApiResponse<List<String>> uploadMultipleFiles(
             @RequestParam("files") List<MultipartFile> files, // Chú ý: "files" số nhiều
-            @RequestParam(value = "folder", defaultValue = "properties") String folder) { // Đổi mặc định thành properties
+            @RequestParam(value = "folder", defaultValue = "properties") String folder) { // Đổi mặc định thành
+                                                                                          // properties
 
         List<String> imageUrls = mediaService.uploadImages(files, folder);
 

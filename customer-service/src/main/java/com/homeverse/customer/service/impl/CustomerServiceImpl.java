@@ -64,10 +64,26 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     private Customer getCurrentCustomer() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return customerRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Hồ sơ khách hàng không tồn tại!"));
-    }
+
+    String email = SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getName();
+
+    System.out.println("EMAIL TOKEN = [" + email + "]");
+
+    var customerOpt = customerRepository.findByEmail(email);
+
+    System.out.println("FOUND CUSTOMER = " + customerOpt.isPresent());
+
+    customerOpt.ifPresent(c ->
+        System.out.println("CUSTOMER DB = " + c.getEmail())
+    );
+
+    return customerOpt.orElseThrow(() ->
+            new RuntimeException("Hồ sơ khách hàng không tồn tại!")
+    );
+}
 
 
     @Override

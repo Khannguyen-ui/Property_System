@@ -53,7 +53,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final PromotionQueueRepository promotionQueueRepository;
 
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-@Override
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto) {
         validatePropertyData(dto);
@@ -125,11 +126,19 @@ public class PropertyServiceImpl implements PropertyService {
                 .bedrooms(dto.getBedrooms() != null ? dto.getBedrooms() : 0)
                 .bathrooms(dto.getBathrooms() != null ? dto.getBathrooms() : 0)
                 .hasBalcony(dto.getHasBalcony() != null ? dto.getHasBalcony() : false)
-                .furnishingStatus(dto.getFurnishingStatus() != null ? Property.FurnishingStatus.valueOf(dto.getFurnishingStatus()) : null)
-                .availabilityStatus(dto.getAvailabilityStatus() != null ? Property.AvailabilityStatus.valueOf(dto.getAvailabilityStatus()) : null)
-                .electricityPrice(dto.getElectricityPrice() != null ? Property.UtilityPriceType.valueOf(dto.getElectricityPrice()) : null)
+                .furnishingStatus(
+                        dto.getFurnishingStatus() != null ? Property.FurnishingStatus.valueOf(dto.getFurnishingStatus())
+                                : null)
+                .availabilityStatus(dto.getAvailabilityStatus() != null
+                        ? Property.AvailabilityStatus.valueOf(dto.getAvailabilityStatus())
+                        : null)
+                .electricityPrice(
+                        dto.getElectricityPrice() != null ? Property.UtilityPriceType.valueOf(dto.getElectricityPrice())
+                                : null)
                 .waterPrice(dto.getWaterPrice() != null ? Property.UtilityPriceType.valueOf(dto.getWaterPrice()) : null)
-                .internetPrice(dto.getInternetPrice() != null ? Property.UtilityPriceType.valueOf(dto.getInternetPrice()) : null)
+                .internetPrice(
+                        dto.getInternetPrice() != null ? Property.UtilityPriceType.valueOf(dto.getInternetPrice())
+                                : null)
                 .promotionPackageId(null)
                 .promotionPackageName(null)
                 .isPromoted(false)
@@ -188,9 +197,12 @@ public class PropertyServiceImpl implements PropertyService {
         property.setImages(dto.getImages());
         property.setAmenities(dto.getAmenities());
 
-        if (dto.getBedrooms() != null) property.setBedrooms(dto.getBedrooms());
-        if (dto.getBathrooms() != null) property.setBathrooms(dto.getBathrooms());
-        if (dto.getHasBalcony() != null) property.setHasBalcony(dto.getHasBalcony());
+        if (dto.getBedrooms() != null)
+            property.setBedrooms(dto.getBedrooms());
+        if (dto.getBathrooms() != null)
+            property.setBathrooms(dto.getBathrooms());
+        if (dto.getHasBalcony() != null)
+            property.setHasBalcony(dto.getHasBalcony());
 
         if (requiresReview) {
             property.setStatus(Property.Status.PENDING);
@@ -199,7 +211,8 @@ public class PropertyServiceImpl implements PropertyService {
             property.setPromotionPackageName(null);
             property.setPromotionExpiresAt(null);
 
-            promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDesc(id, PromotionQueue.PromotionStatus.ACTIVE)
+            promotionQueueRepository
+                    .findFirstByPropertyIdAndStatusOrderByPriorityLevelDesc(id, PromotionQueue.PromotionStatus.ACTIVE)
                     .ifPresent(active -> {
                         active.setStatus(PromotionQueue.PromotionStatus.WAITING);
                         promotionQueueRepository.save(active);
@@ -240,7 +253,6 @@ public class PropertyServiceImpl implements PropertyService {
         log.info("Chủ nhà {} đã XÓA VĨNH VIỄN bài đăng ID: {}", ownerId, id);
     }
 
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void restoreProperty(Long ownerId, Long id) {
@@ -263,13 +275,15 @@ public class PropertyServiceImpl implements PropertyService {
     // ==========================================
     @Override
     @Transactional(readOnly = true) // Tối ưu tốc độ cho hàm chỉ đọc (GET)
-    public org.springframework.data.domain.Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page, int size) {
+    public org.springframework.data.domain.Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page,
+            int size) {
 
         // Tạo bộ phân trang (Ví dụ: Trang 0, mỗi trang lấy 10 bài)
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
 
         // Gọi xuống DB móc rác lên
-        org.springframework.data.domain.Page<Property> deletedProperties = propertyRepository.findDeletedByOwnerId(ownerId, pageable);
+        org.springframework.data.domain.Page<Property> deletedProperties = propertyRepository
+                .findDeletedByOwnerId(ownerId, pageable);
 
         // Convert cả một mảng Page<Property> sang Page<DTO> cực kỳ gọn gàng
         return deletedProperties.map(this::mapToResponse);
@@ -295,10 +309,10 @@ public class PropertyServiceImpl implements PropertyService {
         return mapToResponse(property);
     }
 
-    //  hàm getReelsFeed
+    // hàm getReelsFeed
     @Override
     @Transactional(readOnly = true)
-    public ReelsFeedResponse getReelsFeed(Long currentUserId,String guestId, String cursor, int size) {
+    public ReelsFeedResponse getReelsFeed(Long currentUserId, String guestId, String cursor, int size) {
 
         // 1. Decode cursor thành lastCreatedAt + lastId
         LocalDateTime lastCreatedAt = null;
@@ -307,7 +321,7 @@ public class PropertyServiceImpl implements PropertyService {
         if (cursor != null && !cursor.trim().isEmpty()) {
             try {
                 String decoded = new String(java.util.Base64.getDecoder().decode(cursor));
-                String[] parts = decoded.split("\\|", 2);   // tách bằng dấu |
+                String[] parts = decoded.split("\\|", 2); // tách bằng dấu |
                 if (parts.length == 2) {
                     lastCreatedAt = java.time.LocalDateTime.parse(parts[0]);
                     lastId = Long.parseLong(parts[1]);
@@ -348,8 +362,8 @@ public class PropertyServiceImpl implements PropertyService {
         if (currentUserId != null || (guestId != null && !guestId.trim().isEmpty())) {
 
             // Gọi hàm mới truyền cả 2 tham số
-            List<UserPropertyInteraction> userInteractions =
-                    interactionRepository.findInteractionsIn(currentUserId, guestId, propertyIds);
+            List<UserPropertyInteraction> userInteractions = interactionRepository.findInteractionsIn(currentUserId,
+                    guestId, propertyIds);
 
             for (UserPropertyInteraction interaction : userInteractions) {
                 if (interaction.getInteractionType() == UserPropertyInteraction.InteractionType.LIKE) {
@@ -393,8 +407,84 @@ public class PropertyServiceImpl implements PropertyService {
                 .build();
     }
 
+    @Override
+    public PropertyReelResponseDTO getPropertyReelById(Long id) {
 
+        PropertyResponseDTO property = getPublicPropertyDetail(id);
 
+        PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
+
+        dto.setId(property.getId());
+        dto.setTitle(property.getTitle());
+        dto.setPrice(property.getPrice());
+        dto.setAddress(property.getAddress());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setCreatedAt(property.getCreatedAt());
+        dto.setIsPromoted(property.getIsPromoted());
+
+        dto.setLiked(false);
+        dto.setSaved(false);
+        dto.setLikeCount(0L);
+
+        return dto;
+    }
+
+    @Override
+    public List<PropertyResponseDTO> getPromotedProperties() {
+        return propertyRepository
+                .findPromotedProperties()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<PropertyResponseDTO> getTrendingProperties() {
+        return propertyRepository
+                .findTop10ByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+public List<PropertyResponseDTO> getRandomProperties() {
+    List<PropertyResponseDTO> result = propertyRepository.findRandomProperties()
+            .stream()
+            .map(this::mapToResponse)
+            .toList();
+
+    System.out.println("RANDOM PROPERTY SIZE = " + result.size());
+
+    return result;
+}
+
+    @Override
+    public List<PropertyReelResponseDTO> getPromotedReels() {
+        return propertyRepository
+                .findPromotedReels()
+                .stream()
+                .map(this::toReelDTO)
+                .toList();
+    }
+
+    @Override
+    public List<PropertyReelResponseDTO> getTrendingReels() {
+        return propertyRepository
+                .findTop10ByVideoUrlIsNotNullOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toReelDTO)
+                .toList();
+    }
+
+    @Override
+    public List<PropertyReelResponseDTO> getRandomReels() {
+        return propertyRepository
+                .findRandomReels()
+                .stream()
+                .map(this::toReelDTO)
+                .toList();
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -418,7 +508,6 @@ public class PropertyServiceImpl implements PropertyService {
             throw new AppException(ErrorCode.LOCATION_REQUIRED);
         }
 
-
         if (dto.getPropertyType() == null || dto.getTransactionType() == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
@@ -427,12 +516,18 @@ public class PropertyServiceImpl implements PropertyService {
             Property.PropertyType.valueOf(dto.getPropertyType());
             Property.TransactionType.valueOf(dto.getTransactionType());
 
-            if (dto.getFurnishingStatus() != null) Property.FurnishingStatus.valueOf(dto.getFurnishingStatus());
-            if (dto.getAvailabilityStatus() != null) Property.AvailabilityStatus.valueOf(dto.getAvailabilityStatus());
-            if (dto.getElectricityPrice() != null) Property.UtilityPriceType.valueOf(dto.getElectricityPrice());
-            if (dto.getWaterPrice() != null) Property.UtilityPriceType.valueOf(dto.getWaterPrice());
-            if (dto.getInternetPrice() != null) Property.UtilityPriceType.valueOf(dto.getInternetPrice());
-            if (dto.getLegalDocumentType() != null) Property.LegalDocumentType.valueOf(dto.getLegalDocumentType());
+            if (dto.getFurnishingStatus() != null)
+                Property.FurnishingStatus.valueOf(dto.getFurnishingStatus());
+            if (dto.getAvailabilityStatus() != null)
+                Property.AvailabilityStatus.valueOf(dto.getAvailabilityStatus());
+            if (dto.getElectricityPrice() != null)
+                Property.UtilityPriceType.valueOf(dto.getElectricityPrice());
+            if (dto.getWaterPrice() != null)
+                Property.UtilityPriceType.valueOf(dto.getWaterPrice());
+            if (dto.getInternetPrice() != null)
+                Property.UtilityPriceType.valueOf(dto.getInternetPrice());
+            if (dto.getLegalDocumentType() != null)
+                Property.LegalDocumentType.valueOf(dto.getLegalDocumentType());
         } catch (IllegalArgumentException e) {
 
             throw new AppException(ErrorCode.INVALID_REQUEST);
@@ -450,7 +545,8 @@ public class PropertyServiceImpl implements PropertyService {
                 // Chỉ gọi ĐÚNG 1 CÂU QUERY đếm số lượng dưới DB
                 long countInDb = amenityRepository.countByNames(validAmenityNames);
 
-                // Nếu số lượng tìm thấy dưới DB không bằng số lượng khách gửi lên -> Có kẻ tráo data giả!
+                // Nếu số lượng tìm thấy dưới DB không bằng số lượng khách gửi lên -> Có kẻ tráo
+                // data giả!
                 if (countInDb != validAmenityNames.size()) {
                     log.error("Phát hiện có tiện ích giả mạo không tồn tại trong DB!");
                     throw new AppException(ErrorCode.INVALID_REQUEST);
@@ -459,86 +555,107 @@ public class PropertyServiceImpl implements PropertyService {
         }
     }
 
+    @Override
+    public Double getOwnerTrustScore(Long ownerId) {
+        long activeCount = propertyRepository.countByOwnerIdAndStatus(
+                ownerId,
+                Property.Status.ACTIVE);
+
+        long promotedCount = propertyRepository.countByOwnerIdAndIsPromotedTrueAndStatus(
+                ownerId,
+                Property.Status.ACTIVE);
+
+        double activeScore = Math.min(activeCount / 20.0, 1.0);
+        double promotedScore = Math.min(promotedCount / 5.0, 1.0);
+
+        return activeScore * 0.7 + promotedScore * 0.3;
+    }
+
     private PropertyResponseDTO mapToResponse(Property property) {
-    PropertyResponseDTO dto = new PropertyResponseDTO();
+        PropertyResponseDTO dto = new PropertyResponseDTO();
 
-    dto.setId(property.getId());
-    dto.setProjectId(property.getProjectId());
-    dto.setTitle(property.getTitle());
-    dto.setDescription(property.getDescription());
-    dto.setPrice(property.getPrice());
-    dto.setPricePerSqm(property.getPricePerSqm());
-    dto.setArea(property.getArea());
-    dto.setAddress(property.getAddress());
-    dto.setProvince(property.getProvince());
-    dto.setStreet(property.getStreet());
-    dto.setWard(property.getWard());
-    dto.setDistrict(property.getDistrict());
+        dto.setId(property.getId());
+        dto.setProjectId(property.getProjectId());
+        dto.setTitle(property.getTitle());
+        dto.setDescription(property.getDescription());
+        dto.setPrice(property.getPrice());
+        dto.setPricePerSqm(property.getPricePerSqm());
+        dto.setArea(property.getArea());
+        dto.setAddress(property.getAddress());
+        dto.setProvince(property.getProvince());
+        dto.setStreet(property.getStreet());
+        dto.setWard(property.getWard());
+        dto.setDistrict(property.getDistrict());
 
-    if (property.getLocation() != null) {
-        dto.setLongitude(property.getLocation().getX());
-        dto.setLatitude(property.getLocation().getY());
+        if (property.getLocation() != null) {
+            dto.setLongitude(property.getLocation().getX());
+            dto.setLatitude(property.getLocation().getY());
+        }
+        if (property.getPropertyType() != null) {
+            dto.setPropertyType(property.getPropertyType().name());
+        }
+        if (property.getTransactionType() != null) {
+            dto.setTransactionType(property.getTransactionType().name());
+        }
+        if (property.getStatus() != null) {
+            dto.setStatus(property.getStatus().name());
+        }
+        if (property.getLegalDocumentType() != null) {
+            dto.setLegalDocumentType(property.getLegalDocumentType().name());
+        }
+
+        dto.setCapacity(property.getCapacity());
+        dto.setImages(property.getImages());
+        dto.setAmenities(property.getAmenities());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
+        dto.setQuotaDeducted(property.isQuotaDeducted());
+
+        // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
+        dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+        dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
+        dto.setPromotionPackageId(property.getPromotionPackageId());
+        dto.setPromotionPackageName(property.getPromotionPackageName());
+        // --------------------------------
+
+        dto.setOwnerId(property.getOwnerId());
+        dto.setCreatedAt(property.getCreatedAt());
+        dto.setExpiresAt(property.getExpiresAt());
+        dto.setBedrooms(property.getBedrooms());
+        dto.setBathrooms(property.getBathrooms());
+        dto.setHasBalcony(property.getHasBalcony());
+
+        if (property.getFurnishingStatus() != null)
+            dto.setFurnishingStatus(property.getFurnishingStatus().name());
+        if (property.getAvailabilityStatus() != null)
+            dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
+        if (property.getElectricityPrice() != null)
+            dto.setElectricityPrice(property.getElectricityPrice().name());
+        if (property.getWaterPrice() != null)
+            dto.setWaterPrice(property.getWaterPrice().name());
+        if (property.getInternetPrice() != null)
+            dto.setInternetPrice(property.getInternetPrice().name());
+
+        return dto;
     }
-    if (property.getPropertyType() != null) {
-        dto.setPropertyType(property.getPropertyType().name());
-    }
-    if (property.getTransactionType() != null) {
-        dto.setTransactionType(property.getTransactionType().name());
-    }
-    if (property.getStatus() != null) {
-        dto.setStatus(property.getStatus().name());
-    }
-    if (property.getLegalDocumentType() != null) {
-        dto.setLegalDocumentType(property.getLegalDocumentType().name());
-    }
-    
-    dto.setCapacity(property.getCapacity());
-    dto.setImages(property.getImages());
-    dto.setAmenities(property.getAmenities());
-    dto.setVideoUrl(property.getVideoUrl());
-    dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
-    dto.setQuotaDeducted(property.isQuotaDeducted());
 
-    // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
-    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
-    dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
-    dto.setPromotionPackageId(property.getPromotionPackageId());
-    dto.setPromotionPackageName(property.getPromotionPackageName());
-    // --------------------------------
-
-    dto.setOwnerId(property.getOwnerId());
-    dto.setCreatedAt(property.getCreatedAt());
-    dto.setExpiresAt(property.getExpiresAt());
-    dto.setBedrooms(property.getBedrooms());
-    dto.setBathrooms(property.getBathrooms());
-    dto.setHasBalcony(property.getHasBalcony());
-
-    if (property.getFurnishingStatus() != null) dto.setFurnishingStatus(property.getFurnishingStatus().name());
-    if (property.getAvailabilityStatus() != null)
-        dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
-    if (property.getElectricityPrice() != null) dto.setElectricityPrice(property.getElectricityPrice().name());
-    if (property.getWaterPrice() != null) dto.setWaterPrice(property.getWaterPrice().name());
-    if (property.getInternetPrice() != null) dto.setInternetPrice(property.getInternetPrice().name());
-
-    return dto;
-}
     private PropertyReelResponseDTO toReelDTO(Property property) {
-    PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
-    dto.setId(property.getId());
-    dto.setTitle(property.getTitle());
-    dto.setPrice(property.getPrice());
-    dto.setAddress(property.getAddress());
-    dto.setVideoUrl(property.getVideoUrl());
-    dto.setOwnerSlug(property.getOwnerSlugSnapshot());
-    dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
-    dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
-    dto.setCreatedAt(property.getCreatedAt());
+        PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
+        dto.setId(property.getId());
+        dto.setTitle(property.getTitle());
+        dto.setPrice(property.getPrice());
+        dto.setAddress(property.getAddress());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setOwnerSlug(property.getOwnerSlugSnapshot());
+        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+        dto.setCreatedAt(property.getCreatedAt());
 
-    // --- BỔ SUNG PROMOTION CHO REEL ---
-    // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
-    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
-    // ----------------------------------
+        // --- BỔ SUNG PROMOTION CHO REEL ---
+        // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
+        dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+        // ----------------------------------
 
-    return dto;
-}
+        return dto;
+    }
 }

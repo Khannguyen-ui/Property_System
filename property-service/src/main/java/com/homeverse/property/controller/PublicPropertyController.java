@@ -33,12 +33,66 @@ public class PublicPropertyController {
         return ResponseEntity.ok(propertyService.getPublicProperties(page, size));
     }
 
+    @GetMapping("/owners/{ownerId}/trust-score")
+    public ApiResponse<Double> getOwnerTrustScore(@PathVariable Long ownerId) {
+        return ApiResponse.<Double>builder()
+                .result(propertyService.getOwnerTrustScore(ownerId))
+                .build();
+    }
+
+    @GetMapping("/reels/{id}")
+    public ApiResponse<PropertyReelResponseDTO> getReelById(@PathVariable Long id) {
+        return ApiResponse.<PropertyReelResponseDTO>builder()
+                .result(propertyService.getPropertyReelById(id))
+                .build();
+    }
+
+    @GetMapping("/promoted")
+    public ResponseEntity<List<PropertyResponseDTO>> getPromotedProperties() {
+        return ResponseEntity.ok(
+                propertyService.getPromotedProperties());
+    }
+
+    @GetMapping("/trending")
+    public ResponseEntity<List<PropertyResponseDTO>> getTrendingProperties() {
+        return ResponseEntity.ok(
+                propertyService.getTrendingProperties());
+    }
+
+    @GetMapping("/random")
+    public ResponseEntity<List<PropertyResponseDTO>> getRandomProperties() {
+        return ResponseEntity.ok(
+                propertyService.getRandomProperties());
+    }
+
+    @GetMapping("/reels/promoted")
+    public ApiResponse<List<PropertyReelResponseDTO>> getPromotedReels() {
+        return ApiResponse.<List<PropertyReelResponseDTO>>builder()
+                .result(propertyService.getPromotedReels())
+                .build();
+    }
+
+    @GetMapping("/reels/trending")
+    public ApiResponse<List<PropertyReelResponseDTO>> getTrendingReels() {
+        return ApiResponse.<List<PropertyReelResponseDTO>>builder()
+                .result(propertyService.getTrendingReels())
+                .build();
+    }
+
+    @GetMapping("/reels/random")
+    public ApiResponse<List<PropertyReelResponseDTO>> getRandomReels() {
+        return ApiResponse.<List<PropertyReelResponseDTO>>builder()
+                .result(propertyService.getRandomReels())
+                .build();
+    }
+
     // 2. Xem chi tiết 1 bài đăng (Khi khách click vào Card)
     @GetMapping("/{id}")
     public ResponseEntity<PropertyResponseDTO> getPropertyDetail(@PathVariable Long id) {
 
         return ResponseEntity.ok(propertyService.getPublicPropertyDetail(id));
     }
+
     // 3. API lướt Reels (Video ngắn - Không cần đăng nhập)
     @GetMapping("/reels")
     public ApiResponse<ReelsFeedResponse> getReelsFeed(
@@ -52,7 +106,8 @@ public class PublicPropertyController {
         // Kiểm tra xem request này có kèm Token hợp lệ không
         if (authentication != null && authentication.getPrincipal() != null) {
             try {
-                // Ép kiểu Principal thành String rồi parse sang Long (tùy thuộc vào cách bạn setup JwtFilter)
+                // Ép kiểu Principal thành String rồi parse sang Long (tùy thuộc vào cách bạn
+                // setup JwtFilter)
                 currentUserId = Long.valueOf(authentication.getPrincipal().toString());
             } catch (NumberFormatException e) {
                 // Nếu parse lỗi thì kệ, coi như user chưa đăng nhập (public)
@@ -62,9 +117,10 @@ public class PublicPropertyController {
 
         // Truyền đủ 3 tham số: currentUserId, cursor, size
         return ApiResponse.<ReelsFeedResponse>builder()
-                .result(propertyService.getReelsFeed(currentUserId,guestId, cursor, size))
+                .result(propertyService.getReelsFeed(currentUserId, guestId, cursor, size))
                 .build();
     }
+
     @GetMapping("/owners/{ownerId}")
     public ApiResponse<Page<PropertyResponseDTO>> getOwnerPublicProperties(
             @PathVariable Long ownerId,
