@@ -7,12 +7,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/admin/amenities")
 @RequiredArgsConstructor
 public class AdminAmenityController {
 
     private final AmenityService amenityService;
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Amenity>> getAllAmenitiesForAdmin() {
+        return ResponseEntity.ok(amenityService.getAll());
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")

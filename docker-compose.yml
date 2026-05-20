@@ -289,7 +289,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - identity-service
-      - customer-service
+#      - customer-service
       - property-service
 #      - payment-service
 #      - search-service
