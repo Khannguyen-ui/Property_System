@@ -28,6 +28,8 @@ public enum ErrorCode {
     KYC_NOT_VERIFIED(1103, "Tài khoản chưa được xác minh danh tính (KYC) hoặc chưa được duyệt", HttpStatus.FORBIDDEN), // Dùng cái này cho Service đăng bài!
 
     KYC_ALREADY_SUBMITTED(1104, "Hồ sơ KYC đã được gửi và đang chờ duyệt", HttpStatus.BAD_REQUEST),
+    TOKEN_INVALID(1011, "Mã xác thực không hợp lệ", HttpStatus.BAD_REQUEST),
+    TOKEN_EXPIRED(1012, "Mã xác thực đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // === NHÓM LỖI PROPERTY SERVICE (2xxx) ===
     PROPERTY_NOT_FOUND(2001, "Không tìm thấy bài đăng bất động sản", HttpStatus.NOT_FOUND),
