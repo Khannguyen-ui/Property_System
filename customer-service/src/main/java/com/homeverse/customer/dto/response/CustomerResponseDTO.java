@@ -17,7 +17,7 @@ public class CustomerResponseDTO {
     private String phone;
     private String avatarUrl;
     private String bannerUrl;
-
+    private String citizenId;
     private String kycStatus;
 
     private LifestyleProfile lifestyleProfile;

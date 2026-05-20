@@ -59,10 +59,12 @@ public class    AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
 
-        UserCredential user = userMapper.toEntity(registerDTO);
-        user.setPassword(passwordEncoder.encode(registerDTO.getPassword()));
-        user.setRole(UserCredential.Role.USER);
-
+        UserCredential user = UserCredential.builder()
+                .email(registerDTO.getEmail())
+                .password(passwordEncoder.encode(registerDTO.getPassword()))
+                .fullName(registerDTO.getFullName())
+                .role(UserCredential.Role.USER)
+                .build();
 
         UserCredential savedUser = userRepository.save(user);
 

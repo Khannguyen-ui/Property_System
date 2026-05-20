@@ -1,5 +1,6 @@
 package com.homeverse.property.repository;
 
+import com.homeverse.property.dto.response.PropertyTypeCountDTO;
 import com.homeverse.property.entity.Property;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -65,49 +67,87 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     @Query(value = "DELETE FROM properties WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
     int hardDeleteByIdAdmin(Long id);
 
+    //Đếm bài viết
+    @Query("""
+                SELECT new com.homeverse.property.dto.response.PropertyTypeCountDTO(
+                    p.propertyType,
+                    COUNT(p)
+                )
+                FROM Property p
+                WHERE p.ownerId = :ownerId
+                  AND p.status = :status
+                GROUP BY p.propertyType
+            """)
+    List<PropertyTypeCountDTO> countByOwnerIdAndStatusGroupByPropertyType(
+            @Param("ownerId") Long ownerId,
+            @Param("status") Property.Status status
+    );
+
+    Page<Property> findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
+            Long ownerId,
+            Property.Status status,
+            Property.PropertyType propertyType,
+            Pageable pageable
+    );
+
     // Bài đăng thuộc về
-    // Cập nhật đồng loạt Snapshot của chủ nhà cho tất cả bài đăng
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Property p SET p.ownerNameSnapshot = :name, p.ownerAvatarSnapshot = :avatar, p.ownerSlugSnapshot = :slug WHERE p.ownerId = :ownerId")
+    @Query("""
+                UPDATE Property p
+                SET p.ownerNameSnapshot = :name,
+                    p.ownerAvatarSnapshot = :avatar,
+                    p.ownerSlugSnapshot = :slug,
+                    p.ownerPhoneSnapshot = :phone
+                WHERE p.ownerId = :ownerId
+            """)
     void updateOwnerSnapshot(
             @Param("ownerId") Long ownerId,
             @Param("name") String name,
             @Param("avatar") String avatar,
-            @Param("slug") String slug
+            @Param("slug") String slug,
+            @Param("phone") String phone
     );
 
+    // Phân Loại Trực quan
+    Page<Property> findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+            Long ownerId,
+            Property.Status status,
+            Property.TransactionType transactionType,
+            Pageable pageable
+    );
 
     @Query(value = """
-    SELECT * FROM properties p
-    WHERE p.status = :status
-      AND p.video_url IS NOT NULL
-      AND p.video_url <> ''
-    ORDER BY p.created_at DESC, p.id DESC
-    LIMIT :limit
-    """, nativeQuery = true)
+            SELECT * FROM properties p
+            WHERE p.status = :status
+              AND p.video_url IS NOT NULL
+              AND p.video_url <> ''
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
     List<Property> findFirstReelsFeed(
             @Param("status") String status,
             @Param("limit") int limit
     );
 
     @Query(value = """
-    SELECT * FROM properties p
-    WHERE p.status = :status
-      AND p.video_url IS NOT NULL
-      AND p.video_url <> ''
-      AND (
-            p.created_at < :lastCreatedAt
-            OR (p.created_at = :lastCreatedAt AND p.id < :lastId)
-          )
-    ORDER BY p.created_at DESC, p.id DESC
-    LIMIT :limit
-    """, nativeQuery = true)
+            SELECT * FROM properties p
+            WHERE p.status = :status
+              AND p.video_url IS NOT NULL
+              AND p.video_url <> ''
+              AND (
+                    p.created_at < :lastCreatedAt
+                    OR (p.created_at = :lastCreatedAt AND p.id < :lastId)
+                  )
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
     List<Property> findNextReelsFeed(
             @Param("status") String status,
             @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
             @Param("lastId") Long lastId,
             @Param("limit") int limit
     );
+
     // 2. Dành cho màn hình Xem trang cá nhân (Lấy tất cả bài của 1 User)
     org.springframework.data.domain.Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(Long ownerId, Property.Status status, org.springframework.data.domain.Pageable pageable);
 

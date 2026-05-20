@@ -23,7 +23,7 @@ public class Amenity {
     private Integer id;
 
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false,unique = true)
     private String name;
 
     private String icon;

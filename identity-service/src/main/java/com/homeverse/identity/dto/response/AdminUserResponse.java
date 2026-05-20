@@ -14,7 +14,6 @@ public class AdminUserResponse {
 
     private String email;
 
-    private String phone;
 
     private UserCredential.Role role;
 

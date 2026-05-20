@@ -10,4 +10,6 @@ public class AiChatResponse {
     private String aiReply;
     private String status;
     private List<PropertyCardDTO> items;
+    private Integer totalMatched;
+    private Boolean hasMore;
 }

@@ -7,6 +7,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(name = "customer-service") // Tên service trong docker-compose
 public interface UserServiceClient {
     
-    @GetMapping("/customers/{id}/summary") // Tạo endpoint này bên Customer Service
+    @GetMapping("/customers/{id}/summary")
     UserSummaryDTO getUserSummary(@PathVariable("id") Long id);
 }

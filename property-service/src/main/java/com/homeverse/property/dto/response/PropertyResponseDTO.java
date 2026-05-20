@@ -37,6 +37,10 @@ public class PropertyResponseDTO {
 
     private String status;
     private Long ownerId;
+    private String ownerNameSnapshot;
+    private String ownerAvatarSnapshot;
+    private String ownerSlugSnapshot;
+    private String ownerPhoneSnapshot;
 
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;

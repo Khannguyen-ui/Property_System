@@ -13,7 +13,9 @@ public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
 
 
     boolean existsByName(String name);
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM amenities WHERE LOWER(name) = LOWER(:name))", nativeQuery = true)
+    @Query(value = "SELECT EXISTS(" +
+            "SELECT 1 FROM amenities" +
+            " WHERE LOWER(name) = LOWER(:name))", nativeQuery = true)
     boolean existsInDatabaseEvenIfDeleted(@Param("name") String name);
     boolean existsByNameIgnoreCase(String name);
     @Query("SELECT COUNT(a) FROM Amenity a WHERE a.name IN :names")

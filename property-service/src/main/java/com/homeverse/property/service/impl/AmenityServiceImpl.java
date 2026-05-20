@@ -21,22 +21,18 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityRepository amenityRepository;
 
-    // ==========================================
-    // ---> BẢN VÁ TỐI ƯU: ĐỌC TỪ CACHE <---
-    // ==========================================
+
     @Override
-    @Transactional(readOnly = true) // Tối ưu connection DB
-    @Cacheable(value = "amenities") // Lần sau gọi hàm này sẽ lấy thẳng từ RAM, siêu nhanh!
+    @Transactional(readOnly = true)
+    @Cacheable(value = "amenities")
     public List<Amenity> getAll() {
-        return amenityRepository.findAll(); // Nhờ @SQLRestriction, nó tự động giấu các tiện ích đã bị xóa mềm
+        return amenityRepository.findAll();
     }
 
-    // ==========================================
-    // ---> BẢN VÁ TỐI ƯU: XÓA CACHE KHI CÓ THAY ĐỔI <---
-    // ==========================================
+
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @CacheEvict(value = "amenities", allEntries = true) // Có thêm mới -> Đập bỏ Cache cũ
+    @CacheEvict(value = "amenities", allEntries = true)
     public Amenity create(Amenity amenity) {
         String cleanName = amenity.getName().trim();
 
@@ -46,7 +42,7 @@ public class AmenityServiceImpl implements AmenityService {
         }
 
         amenity.setName(cleanName);
-        amenity.setIsDeleted(false); // Khởi tạo mặc định
+        amenity.setIsDeleted(false);
         return amenityRepository.save(amenity);
     }
 

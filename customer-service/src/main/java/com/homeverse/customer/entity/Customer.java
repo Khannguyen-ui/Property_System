@@ -34,9 +34,9 @@ public class Customer extends BaseAuditEntity {
     private String address;
     private String avatarUrl;
     private String bannerUrl;
-    private String membershipLevel; // Ví dụ: GOLD, SILVER, FREE
+    private String membershipLevel;
     
-    private Long currentMembershipId; // Lưu ID của gói (FK sang bảng ServicePackage nếu có cùng DB)
+    private Long currentMembershipId;
     
     private LocalDateTime membershipExpiresAt;
     @JdbcTypeCode(SqlTypes.JSON)

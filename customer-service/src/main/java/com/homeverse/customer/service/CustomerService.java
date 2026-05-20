@@ -4,6 +4,7 @@ import com.homeverse.customer.dto.UserSummaryDTO;
 import com.homeverse.customer.dto.request.CustomerInitDTO;
 import com.homeverse.customer.dto.request.CustomerProfileDTO;
 import com.homeverse.customer.dto.request.KycRequestDTO;
+import com.homeverse.customer.dto.response.CustomerPublicBannerDTO;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
 import com.homeverse.customer.dto.response.CustomerResponseDTO;
 import com.homeverse.customer.dto.response.KycOcrResponseDTO;
@@ -28,5 +29,6 @@ public interface CustomerService {
     void submitKyc(String kycToken, String citizenId, String fullName, String address, MultipartFile frontImage, MultipartFile backImage);
 
     CustomerResponseDTO uploadBanner(MultipartFile file);
+    CustomerPublicBannerDTO getPublicBanner(String slug);
     UserSummaryDTO getUserSummary(Long id);
 }

@@ -116,7 +116,6 @@ public class AdminServiceImpl implements AdminService {
         return AdminUserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
-                .phone(user.getPhone())
                 .role(user.getRole())
                 .kycStatus(user.getKycStatus())
                 .active(user.isActive())

@@ -3,9 +3,7 @@ package com.homeverse.property.service.impl;
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.property.dto.request.PropertyCreateDTO;
-import com.homeverse.property.dto.response.PropertyReelResponseDTO;
-import com.homeverse.property.dto.response.PropertyResponseDTO;
-import com.homeverse.property.dto.response.ReelsFeedResponse;
+import com.homeverse.property.dto.response.*;
 import com.homeverse.property.entity.OwnerProfile;
 import com.homeverse.property.entity.OwnerQuota;
 import com.homeverse.property.entity.Project;
@@ -30,7 +28,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.homeverse.property.dto.response.OwnerPublicPropertiesResponse;
+import com.homeverse.property.dto.response.PropertyTypeCountDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -53,7 +52,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final PromotionQueueRepository promotionQueueRepository;
 
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-@Override
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto) {
         validatePropertyData(dto);
@@ -117,6 +117,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .status(Property.Status.PENDING)
                 .ownerId(ownerId)
                 .ownerNameSnapshot(profile.getFullName())
+                .ownerPhoneSnapshot(profile.getPhone())
                 .ownerAvatarSnapshot(profile.getAvatar())
                 .ownerSlugSnapshot(profile.getSlug())
                 .createdAt(now)
@@ -294,11 +295,67 @@ public class PropertyServiceImpl implements PropertyService {
 
         return mapToResponse(property);
     }
+    @Override
+    @Transactional(readOnly = true)
+    public OwnerPublicPropertiesResponse getOwnerPublicProperties(
+            Long ownerId,
+            int page,
+            int size,
+            String propertyType
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Property> propertyPage;
+
+        if (propertyType != null && !propertyType.isBlank()) {
+            Property.PropertyType type;
+
+            try {
+                type = Property.PropertyType.valueOf(propertyType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+
+            propertyPage = propertyRepository
+                    .findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            type,
+                            pageable
+                    );
+        } else {
+            propertyPage = propertyRepository
+                    .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            pageable
+                    );
+        }
+
+        Page<PropertyResponseDTO> properties = propertyPage.map(this::mapToResponse);
+
+        List<PropertyTypeCountDTO> typeCounts =
+                propertyRepository.countByOwnerIdAndStatusGroupByPropertyType(
+                        ownerId,
+                        Property.Status.ACTIVE
+                );
+
+        Long totalActivePosts = typeCounts.stream()
+                .mapToLong(PropertyTypeCountDTO::getTotal)
+                .sum();
+
+        return OwnerPublicPropertiesResponse.builder()
+                .ownerId(ownerId)
+                .totalActivePosts(totalActivePosts)
+                .typeCounts(typeCounts)
+                .properties(properties)
+                .build();
+    }
 
     //  hàm getReelsFeed
     @Override
     @Transactional(readOnly = true)
-    public ReelsFeedResponse getReelsFeed(Long currentUserId,String guestId, String cursor, int size) {
+    public ReelsFeedResponse getReelsFeed(Long currentUserId, String guestId, String cursor, int size) {
 
         // 1. Decode cursor thành lastCreatedAt + lastId
         LocalDateTime lastCreatedAt = null;
@@ -404,13 +461,41 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
 
-
-
     @Override
     @Transactional(readOnly = true)
-    public Page<PropertyResponseDTO> getPropertiesByOwnerId(Long ownerId, int page, int size) {
+    public Page<PropertyResponseDTO> getPropertiesByOwnerId(
+            Long ownerId,
+            int page,
+            int size,
+            String transactionType
+    ) {
         Pageable pageable = PageRequest.of(page, size);
-        return propertyRepository.findByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, Property.Status.ACTIVE, pageable)
+
+        if (transactionType != null && !transactionType.isBlank()) {
+            Property.TransactionType type;
+
+            try {
+                type = Property.TransactionType.valueOf(transactionType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+
+            return propertyRepository
+                    .findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            type,
+                            pageable
+                    )
+                    .map(this::mapToResponse);
+        }
+
+        return propertyRepository
+                .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                        ownerId,
+                        Property.Status.ACTIVE,
+                        pageable
+                )
                 .map(this::mapToResponse);
     }
 
@@ -470,85 +555,90 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     private PropertyResponseDTO mapToResponse(Property property) {
-    PropertyResponseDTO dto = new PropertyResponseDTO();
+        PropertyResponseDTO dto = new PropertyResponseDTO();
 
-    dto.setId(property.getId());
-    dto.setProjectId(property.getProjectId());
-    dto.setTitle(property.getTitle());
-    dto.setDescription(property.getDescription());
-    dto.setPrice(property.getPrice());
-    dto.setPricePerSqm(property.getPricePerSqm());
-    dto.setArea(property.getArea());
-    dto.setAddress(property.getAddress());
-    dto.setProvince(property.getProvince());
-    dto.setStreet(property.getStreet());
-    dto.setWard(property.getWard());
-    dto.setDistrict(property.getDistrict());
+        dto.setId(property.getId());
+        dto.setProjectId(property.getProjectId());
+        dto.setTitle(property.getTitle());
+        dto.setDescription(property.getDescription());
+        dto.setPrice(property.getPrice());
+        dto.setPricePerSqm(property.getPricePerSqm());
+        dto.setArea(property.getArea());
+        dto.setAddress(property.getAddress());
+        dto.setProvince(property.getProvince());
+        dto.setStreet(property.getStreet());
+        dto.setWard(property.getWard());
+        dto.setDistrict(property.getDistrict());
 
-    if (property.getLocation() != null) {
-        dto.setLongitude(property.getLocation().getX());
-        dto.setLatitude(property.getLocation().getY());
+        if (property.getLocation() != null) {
+            dto.setLongitude(property.getLocation().getX());
+            dto.setLatitude(property.getLocation().getY());
+        }
+        if (property.getPropertyType() != null) {
+            dto.setPropertyType(property.getPropertyType().name());
+        }
+        if (property.getTransactionType() != null) {
+            dto.setTransactionType(property.getTransactionType().name());
+        }
+        if (property.getStatus() != null) {
+            dto.setStatus(property.getStatus().name());
+        }
+        if (property.getLegalDocumentType() != null) {
+            dto.setLegalDocumentType(property.getLegalDocumentType().name());
+        }
+
+        dto.setCapacity(property.getCapacity());
+        dto.setImages(property.getImages());
+        dto.setAmenities(property.getAmenities());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
+        dto.setQuotaDeducted(property.isQuotaDeducted());
+
+        // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
+        dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+        dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
+        dto.setPromotionPackageId(property.getPromotionPackageId());
+        dto.setPromotionPackageName(property.getPromotionPackageName());
+        // --------------------------------
+
+        dto.setOwnerId(property.getOwnerId());
+        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+        dto.setOwnerSlugSnapshot(property.getOwnerSlugSnapshot());
+        dto.setOwnerPhoneSnapshot(property.getOwnerPhoneSnapshot());
+        dto.setCreatedAt(property.getCreatedAt());
+        dto.setExpiresAt(property.getExpiresAt());
+        dto.setBedrooms(property.getBedrooms());
+        dto.setBathrooms(property.getBathrooms());
+        dto.setHasBalcony(property.getHasBalcony());
+
+        if (property.getFurnishingStatus() != null) dto.setFurnishingStatus(property.getFurnishingStatus().name());
+        if (property.getAvailabilityStatus() != null)
+            dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
+        if (property.getElectricityPrice() != null) dto.setElectricityPrice(property.getElectricityPrice().name());
+        if (property.getWaterPrice() != null) dto.setWaterPrice(property.getWaterPrice().name());
+        if (property.getInternetPrice() != null) dto.setInternetPrice(property.getInternetPrice().name());
+
+        return dto;
     }
-    if (property.getPropertyType() != null) {
-        dto.setPropertyType(property.getPropertyType().name());
-    }
-    if (property.getTransactionType() != null) {
-        dto.setTransactionType(property.getTransactionType().name());
-    }
-    if (property.getStatus() != null) {
-        dto.setStatus(property.getStatus().name());
-    }
-    if (property.getLegalDocumentType() != null) {
-        dto.setLegalDocumentType(property.getLegalDocumentType().name());
-    }
-    
-    dto.setCapacity(property.getCapacity());
-    dto.setImages(property.getImages());
-    dto.setAmenities(property.getAmenities());
-    dto.setVideoUrl(property.getVideoUrl());
-    dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
-    dto.setQuotaDeducted(property.isQuotaDeducted());
 
-    // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
-    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
-    dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
-    dto.setPromotionPackageId(property.getPromotionPackageId());
-    dto.setPromotionPackageName(property.getPromotionPackageName());
-    // --------------------------------
-
-    dto.setOwnerId(property.getOwnerId());
-    dto.setCreatedAt(property.getCreatedAt());
-    dto.setExpiresAt(property.getExpiresAt());
-    dto.setBedrooms(property.getBedrooms());
-    dto.setBathrooms(property.getBathrooms());
-    dto.setHasBalcony(property.getHasBalcony());
-
-    if (property.getFurnishingStatus() != null) dto.setFurnishingStatus(property.getFurnishingStatus().name());
-    if (property.getAvailabilityStatus() != null)
-        dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
-    if (property.getElectricityPrice() != null) dto.setElectricityPrice(property.getElectricityPrice().name());
-    if (property.getWaterPrice() != null) dto.setWaterPrice(property.getWaterPrice().name());
-    if (property.getInternetPrice() != null) dto.setInternetPrice(property.getInternetPrice().name());
-
-    return dto;
-}
     private PropertyReelResponseDTO toReelDTO(Property property) {
-    PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
-    dto.setId(property.getId());
-    dto.setTitle(property.getTitle());
-    dto.setPrice(property.getPrice());
-    dto.setAddress(property.getAddress());
-    dto.setVideoUrl(property.getVideoUrl());
-    dto.setOwnerSlug(property.getOwnerSlugSnapshot());
-    dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
-    dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
-    dto.setCreatedAt(property.getCreatedAt());
+        PropertyReelResponseDTO dto = new PropertyReelResponseDTO();
+        dto.setId(property.getId());
+        dto.setTitle(property.getTitle());
+        dto.setPrice(property.getPrice());
+        dto.setAddress(property.getAddress());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setOwnerSlug(property.getOwnerSlugSnapshot());
+        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+        dto.setCreatedAt(property.getCreatedAt());
 
-    // --- BỔ SUNG PROMOTION CHO REEL ---
-    // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
-    dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
-    // ----------------------------------
+        // --- BỔ SUNG PROMOTION CHO REEL ---
+        // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
+        dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+        // ----------------------------------
 
-    return dto;
-}
+        return dto;
+    }
 }

@@ -34,7 +34,8 @@ public class UserSyncDataConsumer {
 
             DebeziumMessage<UserCdcMessage> debeziumMessage = objectMapper.convertValue(
                     payloadNode,
-                    new TypeReference<DebeziumMessage<UserCdcMessage>>() {}
+                    new TypeReference<DebeziumMessage<UserCdcMessage>>() {
+                    }
             );
 
             if (debeziumMessage == null || debeziumMessage.getOp() == null) return;
@@ -52,7 +53,6 @@ public class UserSyncDataConsumer {
                             .publicId(generatedSlug)
                             .email(payload.getEmail())
                             .fullName(payload.getFullName())
-                            .phone(payload.getPhone())
                             .kycStatus("UNVERIFIED")
                             .build();
 

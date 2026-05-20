@@ -1,4 +1,4 @@
-package com.homeverse.customer.dto.request;
+package com.homeverse.customer.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,9 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CustomerInitDTO {
-    private Long id;
-    private String email;
-    private String fullName;
-
+public class CustomerPublicBannerDTO {
+    private String bannerUrl;
 }

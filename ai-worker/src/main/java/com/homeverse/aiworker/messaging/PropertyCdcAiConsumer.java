@@ -105,27 +105,27 @@ public class PropertyCdcAiConsumer {
                     // Giá & pháp lý
                     .price(after.path("price").asDouble(0.0))
                     .pricePerSqm(after.path("price_per_sqm").asDouble(0.0))
-                    .legalDocumentType(after.path("legal_document_type").asText("Chưa rõ"))
+                    .legalDocumentType(after.path("legal_document_type").asText(""))
 
                     // Cấu trúc & không gian
                     .area(after.path("area").asDouble(0.0))
-                    .propertyType(after.path("property_type").asText("Phòng trọ"))
-                    .transactionType(after.path("transaction_type").asText("Cho thuê"))
+                    .propertyType(after.path("property_type").asText(""))
+                    .transactionType(after.path("transaction_type").asText(""))
                     .bedrooms(after.path("bedrooms").asInt(0))
                     .bathrooms(after.path("bathrooms").asInt(0))
                     .hasBalcony(after.path("has_balcony").asBoolean(false))
                     .capacity(after.hasNonNull("capacity") ? after.path("capacity").asInt() : 0)
 
                     // Tình trạng & tiện ích
-                    .furnishingStatus(after.path("furnishing_status").asText("Không rõ"))
-                    .availabilityStatus(after.path("availability_status").asText("Đang trống"))
+                    .furnishingStatus(after.path("furnishing_status").asText(""))
+                    .availabilityStatus(after.path("availability_status").asText(""))
                     .amenities(amenitiesList)
                     .images(imagesList)
 
                     // Chi phí sinh hoạt
-                    .electricityPrice(after.path("electricity_price").asText("Đang cập nhật"))
-                    .waterPrice(after.path("water_price").asText("Đang cập nhật"))
-                    .internetPrice(after.path("internet_price").asText("Đang cập nhật"))
+                    .electricityPrice(after.path("electricity_price").asText(""))
+                    .waterPrice(after.path("water_price").asText(""))
+                    .internetPrice(after.path("internet_price").asText(""))
 
                     .eventType("UPSERT")
                     .build();
