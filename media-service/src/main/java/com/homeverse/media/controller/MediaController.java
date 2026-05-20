@@ -38,15 +38,4 @@ public class MediaController {
                 .result(imageUrls)
                 .build();
     }
-    @PostMapping("/upload-video")
-    public ApiResponse<String> uploadVideo(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "folder", defaultValue = "properties") String folder) throws IOException {
-
-        String videoUrl = mediaService.uploadVideo(file, folder);
-
-        return ApiResponse.<String>builder()
-                .result(videoUrl)
-                .build();
-    }
 }
