@@ -58,7 +58,13 @@ public class RagOrchestratorService {
                 request.getUserId(),
                 request.getConversationId()
         );
-
+        log.info("FOLLOW_UP_CHECK userId={}, conversationId={}, message={}, hasContext={}, ids={}, isFollowUp={}",
+                request.getUserId(),
+                request.getConversationId(),
+                request.getUserMessage(),
+                lastContext != null,
+                lastContext == null ? null : lastContext.getLastPropertyIds(),
+                isFollowUpQuestion(request.getUserMessage()));
         if (lastContext != null
                 && lastContext.getLastPropertyIds() != null
                 && !lastContext.getLastPropertyIds().isEmpty()
@@ -155,6 +161,7 @@ public class RagOrchestratorService {
                     - Nếu khách yêu cầu đầy đủ nội thất thì ưu tiên furnishingStatus=FULLY_FURNISHED.
                     - Nếu khách yêu cầu vào ở ngay thì ưu tiên availabilityStatus=IMMEDIATELY.
                     - Nếu khách yêu cầu tiện ích cụ thể thì kiểm tra amenities.
+                    
                     
                     Quy tắc trạng thái:
                     - Chỉ chọn bất động sản có status=ACTIVE hoặc status=APPROVED.
@@ -374,17 +381,28 @@ public class RagOrchestratorService {
                         || text.contains("căn này")
                         || text.contains("nhà này")
                         || text.contains("phòng này")
+                        || text.contains("tin này")
                         || text.contains("bài đầu")
                         || text.contains("bài đầu tiên")
-                        || text.contains("bài thứ")
                         || text.contains("căn đầu")
+                        || text.contains("căn đầu tiên")
+                        || text.contains("nhà đầu")
+                        || text.contains("nhà đầu tiên")
+                        || text.contains("phòng đầu")
+                        || text.contains("phòng đầu tiên")
+                        || text.contains("đầu tiên")
+                        || text.contains("thứ nhất")
+                        || text.contains("bài thứ")
                         || text.contains("căn thứ")
+                        || text.contains("nhà thứ")
+                        || text.contains("phòng thứ")
+                        || text.contains("tin thứ")
                         || text.contains("nó có")
                         || text.equals("nó")
                         || text.contains("xem thêm");
 
         boolean shortDetailQuestion =
-                text.length() <= 80 && (
+                text.length() <= 120 && (
                         text.contains("có ban công")
                                 || text.contains("mấy phòng ngủ")
                                 || text.contains("bao nhiêu phòng ngủ")
@@ -395,6 +413,10 @@ public class RagOrchestratorService {
                                 || text.contains("giá bao nhiêu")
                                 || text.contains("rẻ hơn")
                                 || text.contains("đắt hơn")
+                                || text.contains("địa chỉ")
+                                || text.contains("ở đâu")
+                                || text.contains("vị trí")
+                                || text.contains("nằm ở đâu")
                 );
 
         boolean looksLikeNewSearch =
@@ -415,6 +437,11 @@ public class RagOrchestratorService {
 
     private void processFollowUpQuestion(AiChatRequest request, LastSearchContextDTO lastContext) {
         try {
+            Map<Long, Integer> orderMap = new HashMap<>();
+            for (int i = 0; i < lastContext.getLastPropertyIds().size(); i++) {
+                orderMap.put(lastContext.getLastPropertyIds().get(i), i);
+            }
+
             List<PropertyCandidateDTO> candidates = searchServiceClient
                     .getPropertiesByIds(lastContext.getLastPropertyIds())
                     .stream()
@@ -428,6 +455,9 @@ public class RagOrchestratorService {
                     ))
                     .values()
                     .stream()
+                    .sorted(Comparator.comparingInt(item ->
+                            orderMap.getOrDefault(item.getPropertyId(), Integer.MAX_VALUE)
+                    ))
                     .toList();
 
             if (candidates.isEmpty()) {
@@ -465,6 +495,8 @@ public class RagOrchestratorService {
                     - Nếu người dùng hỏi diện tích thì kiểm tra area.
                     - Nếu người dùng hỏi nội thất thì kiểm tra furnishingStatus.
                     - Nếu người dùng hỏi giá thì kiểm tra price.
+                    - Nếu người dùng hỏi địa chỉ, vị trí, ở đâu, nằm ở đâu thì kiểm tra address.
+                    - Nếu address trống thì ghép street, ward, district, province.
                     
                     Chỉ trả về JSON hợp lệ:
                     {
@@ -536,6 +568,7 @@ public class RagOrchestratorService {
             );
         }
     }
+
     private PropertyCandidateDTO mapSearchItemToCandidate(SearchPropertyItemDTO item) {
         return PropertyCandidateDTO.builder()
                 .propertyId(item.getId())
@@ -570,6 +603,7 @@ public class RagOrchestratorService {
                 .imageUrl(item.getThumbnail())
                 .build();
     }
+
     private PropertyCandidateDTO mapToPropertyCandidate(Document doc) {
         Map<String, Object> meta = doc.getMetadata();
 
@@ -632,6 +666,7 @@ public class RagOrchestratorService {
                         + " | district=" + item.getDistrict()
                         + " | ward=" + item.getWard()
                         + " | street=" + item.getStreet()
+                        + " | address=" + item.getAddress()
                         + " | propertyType=" + item.getPropertyType()
                         + " | transactionType=" + item.getTransactionType()
                         + " | status=" + item.getStatus()
