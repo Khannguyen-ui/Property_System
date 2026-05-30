@@ -1,0 +1,76 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: identity-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/identity_db
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    generate-ddl: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/facebook"
+            scope:
+              - email
+              - public_profile
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+
+homeverse:
+  services:
+    customer: http://customer-service:8082
+
+logging:
+  level:
+    root: INFO
+    com.homeverse.identity: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+frontend:
+  url: ${FRONTEND_URL:http://localhost:3000}

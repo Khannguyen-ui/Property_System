@@ -1,0 +1,66 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: payment-service
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Đồng bộ gửi String JSON
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: payment-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Đổi nốt cái này về String để nhận cho dễ, parse sau bằng objectMapper
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        # Khi dùng StringDeserializer thì không cần cấu hình trusted.packages nữa
+        spring.json.trusted.packages: "*"
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/payment_db
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:123456}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        temp:
+          use_jdbc_metadata_defaults: false
+
+
+vnpay:
+  tmn-code: ${VNP_TMNCODE}
+  hash-secret: ${VNP_HASHSECRET}
+  pay-url: ${VNP_PAYURL}
+  return-url: ${VNP_RETURNURL}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+services:
+  wallet-service:
+    url: ${WALLET_SERVICE_URL:http://wallet-service:8089}
+
+
+  
+
+
+
+
+
+  

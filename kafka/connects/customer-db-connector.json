@@ -1,0 +1,26 @@
+{
+  "name": "customer-db-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "host.docker.internal",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "123456",
+    "database.dbname": "customer_db",
+    "topic.prefix": "customer_server",
+    "table.include.list": "public.user_credentials",
+    "schema.include.list": "public",
+    "plugin.name": "pgoutput",
+    "snapshot.mode": "initial",
+    "slot.name": "customer_v1",
+    "publication.name": "customer_pub",
+    "publication.autocreate.mode": "filtered",
+    "slot.drop.on.stop": "false",
+    "database.sslmode": "disable",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

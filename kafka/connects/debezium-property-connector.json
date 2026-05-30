@@ -1,0 +1,27 @@
+{
+  "name": "property-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "host.docker.internal",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "123456",
+    "database.dbname": "property_db",
+    "topic.prefix": "homeverse_db",
+    "decimal.handling.mode": "string",
+    "table.include.list": "public.properties",
+    "plugin.name": "pgoutput",
+    "snapshot.mode": "initial",
+    "slot.name": "property_v1",
+    "publication.name": "property_pub",
+    "publication.autocreate.mode": "filtered",
+    "slot.drop.on.stop": "false",
+    "database.sslmode": "disable",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "geometry.handling.mode": "geojson"
+  }
+}

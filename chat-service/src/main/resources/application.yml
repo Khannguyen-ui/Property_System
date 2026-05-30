@@ -1,0 +1,45 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: chat-service
+    
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_USER:root}:${MONGO_PASSWORD:example}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/chat_db?authSource=admin
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: chat-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret-key: ${JWT_SECRET}
+          jws-algorithms: HS256
+
+services:
+  customer-service-url: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
+  media-service-url: ${MEDIA_SERVICE_URL:http://localhost:8084}
+
+websocket:
+  allowed-origins: "*"
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG

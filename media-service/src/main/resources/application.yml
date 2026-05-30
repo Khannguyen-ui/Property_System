@@ -1,0 +1,16 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: media-service
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}

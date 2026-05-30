@@ -1,0 +1,44 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: property-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/property_db
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  logging:
+    level:
+      org.hibernate.SQL: ERROR
+      com.homeverse.property: INFO
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: property-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  data:
+    redis:
+
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+homeverse:
+  services:
+    identity: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+    recommend-service:url: http://recommend-service:8092
+
+jwt:
+  secret: ${JWT_SECRET}
