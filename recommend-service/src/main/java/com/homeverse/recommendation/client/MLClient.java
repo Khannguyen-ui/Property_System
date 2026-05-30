@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 @FeignClient(
         name = "ml-client",
-        url = "${ml.service.url}"
+        url = "${homeverse.services.ml}"
 )
 public interface MLClient {
 
