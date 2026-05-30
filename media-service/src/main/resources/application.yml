@@ -1,10 +1,7 @@
 server:
   port: 8084
-<<<<<<< HEAD
-=======
   tomcat:
     max-swallow-size: 50MB
->>>>>>> 4d51cfce037f89dc05c491ba4e56a0c20a8837af
 
 spring:
   application:
@@ -12,13 +9,8 @@ spring:
 
   servlet:
     multipart:
-<<<<<<< HEAD
-      max-file-size: 200MB
-      max-request-size: 200MB
-=======
       max-file-size: 50MB
       max-request-size: 50MB
->>>>>>> 4d51cfce037f89dc05c491ba4e56a0c20a8837af
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
