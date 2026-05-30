@@ -3,6 +3,7 @@ spring:
     exclude:
       - org.springframework.ai.autoconfigure.vectorstore.elasticsearch.ElasticsearchVectorStoreAutoConfiguration
       - org.springframework.ai.autoconfigure.retry.SpringAiRetryAutoConfiguration
+
   main:
     web-application-type: none
 
@@ -39,21 +40,35 @@ spring:
         index-name: homeverse-properties-vector
         dimensions: 768
         similarity: cosine
-resilience4j.ratelimiter:
-  instances:
-    geminiApi:
-      limitForPeriod: 5
-      limitRefreshPeriod: 60s
-      timeoutDuration: 15s
 
-resilience4j.retry:
-  instances:
-    geminiApi:
-      maxAttempts: 3
-      waitDuration: 5s
-      enableExponentialBackoff: true
-      retryExceptions:
-        - org.springframework.web.client.HttpStatusCodeException
-        - java.util.concurrent.TimeoutException
+services:
+  search-service-url: ${SEARCH_SERVICE_URL:http://search-service:8088}
+
+resilience4j:
+  ratelimiter:
+    instances:
+      geminiApi:
+        limitForPeriod: 5
+        limitRefreshPeriod: 60s
+        timeoutDuration: 2s
+
+  retry:
+    instances:
+      geminiApi:
+        maxAttempts: 3
+        waitDuration: 5s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+logging:
+  level:
+    io.github.resilience4j.retry: DEBUG
+    io.github.resilience4j.ratelimiter: DEBUG

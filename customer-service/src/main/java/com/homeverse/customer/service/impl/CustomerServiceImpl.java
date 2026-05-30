@@ -5,6 +5,7 @@ import com.homeverse.customer.client.MediaClient;
 import com.homeverse.customer.dto.UserSummaryDTO;
 import com.homeverse.customer.dto.external.FptOcrResponse;
 import com.homeverse.customer.dto.request.*;
+import com.homeverse.customer.dto.response.CustomerPublicBannerDTO;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
 import com.homeverse.customer.dto.response.CustomerResponseDTO;
 import com.homeverse.customer.dto.response.KycOcrResponseDTO;
@@ -57,7 +58,6 @@ public class CustomerServiceImpl implements CustomerService {
                 .publicId(generatedSlug)
                 .email(dto.getEmail())
                 .fullName(dto.getFullName())
-                .phone(dto.getPhone())
                 .kycStatus("UNVERIFIED")
                 .build();
         customerRepository.save(customer);
@@ -156,7 +156,15 @@ public class CustomerServiceImpl implements CustomerService {
             throw new RuntimeException("Lỗi upload banner: " + e.getMessage());
         }
     }
+    @Override
+    public CustomerPublicBannerDTO getPublicBanner(String slug) {
+        Customer customer = customerRepository.findByPublicId(slug)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin chủ bài đăng!"));
 
+        return CustomerPublicBannerDTO.builder()
+                .bannerUrl(customer.getBannerUrl())
+                .build();
+    }
 
     @Override
     public CustomerResponseDTO getMyProfile() {
@@ -168,8 +176,18 @@ public class CustomerServiceImpl implements CustomerService {
         Customer customer = customerRepository.findByPublicId(slug)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin chủ bài đăng!"));
 
-        return modelMapper.map(customer, CustomerPublicResponseDTO.class);
+        return CustomerPublicResponseDTO.builder()
+                .id(customer.getId())
+                .publicId(customer.getPublicId())
+                .fullName(customer.getFullName())
+                .phone(customer.getPhone())
+                .avatarUrl(customer.getAvatarUrl())
+                .kycStatus(customer.getKycStatus())
+                .membershipLevel(customer.getMembershipLevel())
+                .createdAt(customer.getCreatedAt())
+                .build();
     }
+
 
     @Override
     @Transactional

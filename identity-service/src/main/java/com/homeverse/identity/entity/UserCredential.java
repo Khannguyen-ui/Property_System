@@ -29,8 +29,6 @@ public class UserCredential implements UserDetails {
     private String password;
 
     private String fullName;
-    private String phone;
-
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -89,5 +87,5 @@ public class UserCredential implements UserDetails {
         return isActive;
     }
 
-    public enum Role { ADMIN, USER, OWNER }
+    public enum Role {ADMIN, USER, OWNER}
 }

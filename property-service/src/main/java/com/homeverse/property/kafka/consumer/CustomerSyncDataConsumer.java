@@ -53,6 +53,7 @@ public class CustomerSyncDataConsumer {
                         .fullName(after.getFullName())
                         .avatar(after.getAvatarUrl())
                         .slug(after.getPublicId())
+                        .phone(after.getPhone())
                         .build();
 
                 ownerProfileRepository.save(profile);
@@ -62,31 +63,37 @@ public class CustomerSyncDataConsumer {
             // =========================================================
             // 2. CẬP NHẬT PROFILE & SNAPSHOT KHI CÓ THAY ĐỔI
             // =========================================================
-            if ("u".equals(operation) && after != null && before != null) {
+            if ("u".equals(operation) && after != null) {
+                log.info("[CDC] Customer update event: id={}, phone={}", after.getId(), after.getPhone());
+
+                OwnerProfile profile = ownerProfileRepository.findById(after.getId())
+                        .orElseGet(() -> OwnerProfile.builder()
+                                .id(after.getId())
+                                .build());
+
                 boolean isProfileChanged =
-                        !isEqual(before.getFullName(), after.getFullName()) ||
-                                !isEqual(before.getAvatarUrl(), after.getAvatarUrl()) ||
-                                !isEqual(before.getPublicId(), after.getPublicId());
+                        !isEqual(profile.getFullName(), after.getFullName()) ||
+                                !isEqual(profile.getAvatar(), after.getAvatarUrl()) ||
+                                !isEqual(profile.getSlug(), after.getPublicId()) ||
+                                !isEqual(profile.getPhone(), after.getPhone());
 
                 if (isProfileChanged) {
                     log.info("[CDC] Customer ID {} đổi Profile. Đang đồng bộ...", after.getId());
-
-                    // A. Cập nhật bảng Profile nội bộ
-                    OwnerProfile profile = ownerProfileRepository.findById(after.getId())
-                            .orElse(new OwnerProfile());
 
                     profile.setId(after.getId());
                     profile.setFullName(after.getFullName());
                     profile.setAvatar(after.getAvatarUrl());
                     profile.setSlug(after.getPublicId());
+                    profile.setPhone(after.getPhone());
+
                     ownerProfileRepository.save(profile);
 
-                    // B. Cập nhật hàng loạt Snapshot cho các bài đăng cũ
                     propertyRepository.updateOwnerSnapshot(
                             after.getId(),
                             after.getFullName(),
                             after.getAvatarUrl(),
-                            after.getPublicId()
+                            after.getPublicId(),
+                            after.getPhone()
                     );
 
                     log.info("=> Đồng bộ Profile và Snapshot thành công cho ID: {}", after.getId());

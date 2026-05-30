@@ -23,7 +23,7 @@ public class OwnerProfile {
 
     @Column(unique = true, nullable = false)
     private String slug;
-
+    private String phone;
     private String fullName;
     private String avatar;
 }

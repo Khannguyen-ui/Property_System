@@ -125,10 +125,12 @@ public class PublicPropertyController {
     public ApiResponse<Page<PropertyResponseDTO>> getOwnerPublicProperties(
             @PathVariable Long ownerId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String transactionType) {
 
         return ApiResponse.<Page<PropertyResponseDTO>>builder()
-                .result(propertyService.getPropertiesByOwnerId(ownerId, page, size))
+                .result(propertyService.getPropertiesByOwnerId(ownerId, page, size, transactionType))
                 .build();
     }
+
 }

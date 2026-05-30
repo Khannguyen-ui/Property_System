@@ -9,12 +9,15 @@ import lombok.Data;
 public class CustomerCdcMessage {
     private Long id;
 
-    @JsonProperty("full_name") // Tên cột DB của bạn
+    @JsonProperty("full_name")
     private String fullName;
 
-    @JsonProperty("avatar_url") // Tên cột DB
+    @JsonProperty("avatar_url")
     private String avatarUrl;
 
-    @JsonProperty("public_id") // Tên cột lưu Slug trong DB
+    @JsonProperty("public_id")
     private String publicId;
+
+    @JsonProperty("phone")
+    private String phone;
 }

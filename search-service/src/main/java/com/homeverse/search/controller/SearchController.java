@@ -1,6 +1,7 @@
 package com.homeverse.search.controller;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.search.dto.request.PropertyIdsRequestDTO;
 import com.homeverse.search.dto.request.PropertySearchRequestDTO;
 import com.homeverse.search.dto.response.PropertySearchItemDTO;
 import com.homeverse.search.service.PropertySearchService;
@@ -9,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -33,6 +36,16 @@ public class SearchController {
 
         Page<PropertySearchItemDTO> result = searchService.advancedSearch(request);
         return ApiResponse.<Page<PropertySearchItemDTO>>builder()
+                .result(result)
+                .build();
+    }
+    @PostMapping("/properties/by-ids")
+    public ApiResponse<List<PropertySearchItemDTO>> getPropertiesByIds(
+            @RequestBody PropertyIdsRequestDTO request
+    ) {
+        List<PropertySearchItemDTO> result = searchService.findByIds(request.getIds());
+
+        return ApiResponse.<List<PropertySearchItemDTO>>builder()
                 .result(result)
                 .build();
     }

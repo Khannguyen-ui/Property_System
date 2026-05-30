@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -21,33 +22,46 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityRepository amenityRepository;
 
-    // ==========================================
-    // ---> BẢN VÁ TỐI ƯU: ĐỌC TỪ CACHE <---
-    // ==========================================
     @Override
-    @Transactional(readOnly = true) // Tối ưu connection DB
-    @Cacheable(value = "amenities") // Lần sau gọi hàm này sẽ lấy thẳng từ RAM, siêu nhanh!
+    @Transactional(readOnly = true)
+    @Cacheable(value = "amenities")
     public List<Amenity> getAll() {
-        return amenityRepository.findAll(); // Nhờ @SQLRestriction, nó tự động giấu các tiện ích đã bị xóa mềm
+        return amenityRepository.findAll();
     }
 
-    // ==========================================
-    // ---> BẢN VÁ TỐI ƯU: XÓA CACHE KHI CÓ THAY ĐỔI <---
-    // ==========================================
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @CacheEvict(value = "amenities", allEntries = true) // Có thêm mới -> Đập bỏ Cache cũ
+    @CacheEvict(value = "amenities", allEntries = true)
     public Amenity create(Amenity amenity) {
-        String cleanName = amenity.getName().trim();
+        String cleanName = validateAndCleanName(amenity);
 
-        if (amenityRepository.existsByNameIgnoreCase(cleanName)) {
-            log.warn("Tiện ích đã tồn tại: {}", cleanName);
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+        Optional<Amenity> existingOpt =
+                amenityRepository.findByNameIgnoreCaseIncludingDeleted(cleanName);
+
+        if (existingOpt.isPresent()) {
+            Amenity existing = existingOpt.get();
+
+            if (Boolean.FALSE.equals(existing.getIsDeleted())) {
+                log.warn("Tiện ích đã tồn tại: {}", cleanName);
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+
+            existing.setName(cleanName);
+            existing.setIcon(amenity.getIcon());
+            existing.setIsDeleted(false);
+
+            log.info("Khôi phục tiện ích đã xóa mềm: {}", cleanName);
+
+            return amenityRepository.save(existing);
         }
 
-        amenity.setName(cleanName);
-        amenity.setIsDeleted(false); // Khởi tạo mặc định
-        return amenityRepository.save(amenity);
+        Amenity newAmenity = Amenity.builder()
+                .name(cleanName)
+                .icon(amenity.getIcon())
+                .isDeleted(false)
+                .build();
+
+        return amenityRepository.save(newAmenity);
     }
 
     @Override
@@ -57,11 +71,21 @@ public class AmenityServiceImpl implements AmenityService {
         Amenity existingAmenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
 
-        String cleanName = dto.getName().trim();
+        String cleanName = validateAndCleanName(dto);
 
-        if (!existingAmenity.getName().equalsIgnoreCase(cleanName)
-                && amenityRepository.existsByNameIgnoreCase(cleanName)) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+        Optional<Amenity> sameNameOpt =
+                amenityRepository.findByNameIgnoreCaseIncludingDeleted(cleanName);
+
+        if (sameNameOpt.isPresent()) {
+            Amenity sameNameAmenity = sameNameOpt.get();
+
+            boolean isDifferentAmenity = !sameNameAmenity.getId().equals(existingAmenity.getId());
+            boolean isActive = Boolean.FALSE.equals(sameNameAmenity.getIsDeleted());
+
+            if (isDifferentAmenity && isActive) {
+                log.warn("Tên tiện ích đã tồn tại: {}", cleanName);
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
         }
 
         existingAmenity.setName(cleanName);
@@ -77,8 +101,16 @@ public class AmenityServiceImpl implements AmenityService {
         Amenity existingAmenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
 
-
         amenityRepository.delete(existingAmenity);
+
         log.info("Đã xóa mềm tiện ích: {}", existingAmenity.getName());
+    }
+
+    private String validateAndCleanName(Amenity amenity) {
+        if (amenity == null || amenity.getName() == null || amenity.getName().trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        return amenity.getName().trim();
     }
 }

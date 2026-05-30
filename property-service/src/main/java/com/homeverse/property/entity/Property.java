@@ -14,6 +14,8 @@ import java.util.List;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.SQLDelete;
 
+import javax.lang.model.element.Name;
+
 @Entity
 @Table(name = "properties")
 @Getter
@@ -99,6 +101,9 @@ public class Property {
 
     @Column(name = "owner_name_snapshot")
     private String ownerNameSnapshot;
+
+    @Column(name = "owner_phone_snapshot")
+    private String ownerPhoneSnapshot;
 
     @Column(name = "owner_avatar_snapshot")
     private String ownerAvatarSnapshot;

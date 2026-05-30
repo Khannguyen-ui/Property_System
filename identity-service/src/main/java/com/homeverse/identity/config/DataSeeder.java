@@ -22,7 +22,6 @@ public class DataSeeder implements CommandLineRunner {
                     .email("admin@homeverse.com")
                     .password(passwordEncoder.encode("Admin@123456"))
                     .fullName("System Administrator")
-                    .phone("0999999999")
                     .role(UserCredential.Role.ADMIN)
                     .isActive(true)
                     .kycStatus("VERIFIED")

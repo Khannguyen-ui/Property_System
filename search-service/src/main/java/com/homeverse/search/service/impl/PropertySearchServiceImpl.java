@@ -20,6 +20,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.json.JsonData;
+import java.util.Map;
+import java.util.Objects;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -180,6 +182,46 @@ public class PropertySearchServiceImpl implements PropertySearchService {
 
         return b;
     }
+    @Override
+    @Transactional(readOnly = true)
+    public List<PropertySearchItemDTO> findByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        NativeQuery query = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b
+                        .filter(f -> f.terms(t -> t
+                                .field("id")
+                                .terms(v -> v.value(
+                                        ids.stream()
+                                                .map(FieldValue::of)
+                                                .collect(Collectors.toList())
+                                ))
+                        ))
+                        .filter(f -> f.term(t -> t.field("status").value("ACTIVE")))
+                ))
+                .withPageable(PageRequest.of(0, ids.size()))
+                .build();
+
+        SearchHits<PropertyDocument> searchHits =
+                elasticsearchOperations.search(query, PropertyDocument.class);
+
+        Map<Long, PropertyDocument> docMap = searchHits.getSearchHits().stream()
+                .map(hit -> hit.getContent())
+                .filter(doc -> doc.getId() != null)
+                .collect(Collectors.toMap(
+                        PropertyDocument::getId,
+                        doc -> doc,
+                        (a, b) -> a
+                ));
+
+        return ids.stream()
+                .map(docMap::get)
+                .filter(Objects::nonNull)
+                .map(this::mapDocumentToItemDTO)
+                .collect(Collectors.toList());
+    }
 
     private PropertySearchItemDTO mapDocumentToItemDTO(PropertyDocument doc) {
         PropertySearchItemDTO dto = new PropertySearchItemDTO();
@@ -197,9 +239,17 @@ public class PropertySearchServiceImpl implements PropertySearchService {
         dto.setBedrooms(doc.getBedrooms());
         dto.setBathrooms(doc.getBathrooms());
 
+
         // Map 2 trường mới hiển thị UI
         dto.setHasBalcony(doc.getHasBalcony());
         dto.setFurnishingStatus(doc.getFurnishingStatus());
+
+        dto.setCapacity(doc.getCapacity());
+        dto.setAvailabilityStatus(doc.getAvailabilityStatus());
+        dto.setElectricityPrice(doc.getElectricityPrice());
+        dto.setWaterPrice(doc.getWaterPrice());
+        dto.setInternetPrice(doc.getInternetPrice());
+        dto.setAmenities(doc.getAmenities());
 
         dto.setCreatedAt(doc.getCreatedAt());
 

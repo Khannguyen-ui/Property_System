@@ -9,5 +9,6 @@ import java.util.List;
 
 public interface PropertySearchService {
     Page<PropertySearchItemDTO> advancedSearch(PropertySearchRequestDTO request);
+    List<PropertySearchItemDTO> findByIds(List<Long> ids);
 
 }

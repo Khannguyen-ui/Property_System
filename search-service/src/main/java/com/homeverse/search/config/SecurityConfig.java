@@ -35,9 +35,9 @@ public class SecurityConfig {
 
                         .requestMatchers("/search/properties").permitAll()
                         .requestMatchers("/api/v1/analytics/**").permitAll()
+                        .requestMatchers("/search/properties/by-ids").permitAll()
 
-                        // 2. CHẶN KÍN: Nếu sau này làm tính năng "Lưu tìm kiếm của tôi", bắt buộc phải đăng nhập
-                        // .requestMatchers("/search/my-saved-searches").authenticated()
+
 
                         .anyRequest().authenticated()
                 );

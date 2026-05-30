@@ -2,9 +2,9 @@ package com.homeverse.property.service;
 
 import com.homeverse.property.dto.request.PropertyCreateDTO;
 import com.homeverse.property.dto.response.PropertyReelResponseDTO;
+import com.homeverse.property.dto.response.OwnerPublicPropertiesResponse;
 import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.dto.response.ReelsFeedResponse;
-import com.homeverse.property.entity.Property;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
@@ -44,7 +44,19 @@ public interface PropertyService {
   List<PropertyReelResponseDTO> getRandomReels();
   Double getOwnerTrustScore(Long ownerId);
 
-  // API Xem Trang cá nhân
-  org.springframework.data.domain.Page<com.homeverse.property.dto.response.PropertyResponseDTO> getPropertiesByOwnerId(
-      Long ownerId, int page, int size);
+    // API cũ: chỉ lấy danh sách bài ACTIVE của owner
+    Page<PropertyResponseDTO> getPropertiesByOwnerId(
+            Long ownerId,
+            int page,
+            int size,
+            String transactionType
+    );
+
+    // API mới: lấy bài + tổng bài + thống kê theo loại
+    OwnerPublicPropertiesResponse getOwnerPublicProperties(
+            Long ownerId,
+            int page,
+            int size,
+            String propertyType
+    );
 }

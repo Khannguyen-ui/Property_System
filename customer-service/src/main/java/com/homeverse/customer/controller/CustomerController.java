@@ -3,6 +3,7 @@ package com.homeverse.customer.controller;
 import com.homeverse.common.dto.ApiResponse;
 import com.homeverse.customer.dto.UserSummaryDTO;
 import com.homeverse.customer.dto.request.*;
+import com.homeverse.customer.dto.response.CustomerPublicBannerDTO;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
 import com.homeverse.customer.dto.response.CustomerResponseDTO;
 import com.homeverse.customer.dto.response.KycOcrResponseDTO;
@@ -71,6 +72,12 @@ public class CustomerController {
     public ApiResponse<CustomerResponseDTO> uploadBanner(@RequestPart("file") MultipartFile file) {
         return ApiResponse.<CustomerResponseDTO>builder()
                 .result(customerService.uploadBanner(file))
+                .build();
+    }
+    @GetMapping("/{slug}/public-banner")
+    public ApiResponse<CustomerPublicBannerDTO> getPublicBanner(@PathVariable("slug") String slug) {
+        return ApiResponse.<CustomerPublicBannerDTO>builder()
+                .result(customerService.getPublicBanner(slug))
                 .build();
     }
 

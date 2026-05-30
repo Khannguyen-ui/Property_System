@@ -7,7 +7,7 @@ import com.homeverse.chat.dto.response.ConversationResponse;
 import com.homeverse.chat.service.ChatService; // Import Interface
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
+import com.homeverse.chat.kafka.AiRequestProducer;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -26,7 +26,7 @@ public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatService chatService;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final AiRequestProducer aiRequestProducer;
 
     // ========================================================================
     // 1. WEBSOCKET HANDLER
@@ -89,7 +89,7 @@ public class ChatController {
         chatService.markAsRead(partnerId);
         return ResponseEntity.ok().build();
     }
-    @PostMapping("/api/chat/test-ai-flow")
+    @PostMapping("/test-ai-flow")
     public ResponseEntity<String> testAiFlowFromPostman(@RequestBody AiChatRequest request, Principal principal) {
         // 1. Chặn cửa nếu Postman không gửi JWT Token
         if (principal == null) {
@@ -104,8 +104,8 @@ public class ChatController {
             request.setConversationId("conv-postman-test");
         }
 
-        // 3. Bắn thẳng vào Kafka y hệt như WebSocket làm
-        kafkaTemplate.send("ai-requests", currentUserId, request);
+
+        aiRequestProducer.sendAiRequest(currentUserId, request);
 
         return ResponseEntity.ok("🚀 Đã ném câu hỏi của User [" + currentUserId + "] vào Kafka! Sếp mở log Docker ra xem AI Worker chạy nhé.");
     }
@@ -131,6 +131,6 @@ public class ChatController {
         }
 
         // 4. Bắn vào Kafka
-        kafkaTemplate.send("ai-requests", currentUserId, aiRequest);
+        aiRequestProducer.sendAiRequest(currentUserId, aiRequest);
     }
 }

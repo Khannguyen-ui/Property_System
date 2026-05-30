@@ -3,9 +3,7 @@ package com.homeverse.property.service.impl;
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.property.dto.request.PropertyCreateDTO;
-import com.homeverse.property.dto.response.PropertyReelResponseDTO;
-import com.homeverse.property.dto.response.PropertyResponseDTO;
-import com.homeverse.property.dto.response.ReelsFeedResponse;
+import com.homeverse.property.dto.response.*;
 import com.homeverse.property.entity.OwnerProfile;
 import com.homeverse.property.entity.OwnerQuota;
 import com.homeverse.property.entity.Project;
@@ -30,7 +28,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.homeverse.property.dto.response.OwnerPublicPropertiesResponse;
+import com.homeverse.property.dto.response.PropertyTypeCountDTO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -118,6 +117,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .status(Property.Status.PENDING)
                 .ownerId(ownerId)
                 .ownerNameSnapshot(profile.getFullName())
+                .ownerPhoneSnapshot(profile.getPhone())
                 .ownerAvatarSnapshot(profile.getAvatar())
                 .ownerSlugSnapshot(profile.getSlug())
                 .createdAt(now)
@@ -308,6 +308,62 @@ public class PropertyServiceImpl implements PropertyService {
 
         return mapToResponse(property);
     }
+    @Override
+    @Transactional(readOnly = true)
+    public OwnerPublicPropertiesResponse getOwnerPublicProperties(
+            Long ownerId,
+            int page,
+            int size,
+            String propertyType
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Property> propertyPage;
+
+        if (propertyType != null && !propertyType.isBlank()) {
+            Property.PropertyType type;
+
+            try {
+                type = Property.PropertyType.valueOf(propertyType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+
+            propertyPage = propertyRepository
+                    .findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            type,
+                            pageable
+                    );
+        } else {
+            propertyPage = propertyRepository
+                    .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            pageable
+                    );
+        }
+
+        Page<PropertyResponseDTO> properties = propertyPage.map(this::mapToResponse);
+
+        List<PropertyTypeCountDTO> typeCounts =
+                propertyRepository.countByOwnerIdAndStatusGroupByPropertyType(
+                        ownerId,
+                        Property.Status.ACTIVE
+                );
+
+        Long totalActivePosts = typeCounts.stream()
+                .mapToLong(PropertyTypeCountDTO::getTotal)
+                .sum();
+
+        return OwnerPublicPropertiesResponse.builder()
+                .ownerId(ownerId)
+                .totalActivePosts(totalActivePosts)
+                .typeCounts(typeCounts)
+                .properties(properties)
+                .build();
+    }
 
     // hàm getReelsFeed
     @Override
@@ -334,11 +390,21 @@ public class PropertyServiceImpl implements PropertyService {
         }
 
         // 2. Query data từ Database
-        List<Property> properties = propertyRepository.findReelsFeed(
-                Property.Status.ACTIVE,
-                lastCreatedAt,
-                lastId,
-                size);
+        List<Property> properties;
+
+        if (lastCreatedAt == null || lastId == null) {
+            properties = propertyRepository.findFirstReelsFeed(
+                    Property.Status.ACTIVE.name(),
+                    size
+            );
+        } else {
+            properties = propertyRepository.findNextReelsFeed(
+                    Property.Status.ACTIVE.name(),
+                    lastCreatedAt,
+                    lastId,
+                    size
+            );
+        }
 
         // Thoát sớm nếu không có dữ liệu để tiết kiệm tài nguyên
         if (properties.isEmpty()) {
@@ -488,9 +554,39 @@ public List<PropertyResponseDTO> getRandomProperties() {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PropertyResponseDTO> getPropertiesByOwnerId(Long ownerId, int page, int size) {
+    public Page<PropertyResponseDTO> getPropertiesByOwnerId(
+            Long ownerId,
+            int page,
+            int size,
+            String transactionType
+    ) {
         Pageable pageable = PageRequest.of(page, size);
-        return propertyRepository.findByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, Property.Status.ACTIVE, pageable)
+
+        if (transactionType != null && !transactionType.isBlank()) {
+            Property.TransactionType type;
+
+            try {
+                type = Property.TransactionType.valueOf(transactionType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+
+            return propertyRepository
+                    .findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            Property.Status.ACTIVE,
+                            type,
+                            pageable
+                    )
+                    .map(this::mapToResponse);
+        }
+
+        return propertyRepository
+                .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                        ownerId,
+                        Property.Status.ACTIVE,
+                        pageable
+                )
                 .map(this::mapToResponse);
     }
 
@@ -619,6 +715,10 @@ public List<PropertyResponseDTO> getRandomProperties() {
         // --------------------------------
 
         dto.setOwnerId(property.getOwnerId());
+        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+        dto.setOwnerSlugSnapshot(property.getOwnerSlugSnapshot());
+        dto.setOwnerPhoneSnapshot(property.getOwnerPhoneSnapshot());
         dto.setCreatedAt(property.getCreatedAt());
         dto.setExpiresAt(property.getExpiresAt());
         dto.setBedrooms(property.getBedrooms());
