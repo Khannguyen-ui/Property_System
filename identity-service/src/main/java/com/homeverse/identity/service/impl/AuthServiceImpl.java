@@ -126,7 +126,7 @@ public class    AuthServiceImpl implements AuthService {
                 .build();
         tokenRepository.save(resetToken);
 
-        // 🚨 1. LƯU LẠI CLASS LOADER CỦA LUỒNG CHÍNH (SPRING BOOT)
+
         ClassLoader springBootClassLoader = Thread.currentThread().getContextClassLoader();
 
         // 2. Chạy luồng ngầm
