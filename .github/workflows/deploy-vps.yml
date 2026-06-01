@@ -1,0 +1,80 @@
+name: Deploy HomeVerse to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Contabo VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            echo "=== Go to project ==="
+            cd ${{ secrets.VPS_PROJECT_PATH }}
+
+            echo "=== Pull latest code from GitHub ==="
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Check Docker ==="
+            docker --version
+            docker compose version
+
+            echo "=== Build Maven jars ==="
+            docker run --rm \
+              -v "$PWD":/workspace \
+              -v maven-repo:/root/.m2 \
+              -w /workspace \
+              maven:3.9.9-eclipse-temurin-21 \
+              mvn clean package -DskipTests
+
+            echo "=== Build Docker images ==="
+            docker compose build \
+              identity-service \
+              customer-service \
+              media-service \
+              notification-service \
+              property-service \
+              payment-service \
+              search-service \
+              wallet-service \
+              chat-service \
+              ai-worker-service
+
+            echo "=== Start infrastructure ==="
+            docker compose up -d zookeeper kafka redis mongodb
+
+            echo "=== Start backend services ==="
+            docker compose up -d \
+              identity-service \
+              customer-service \
+              media-service \
+              notification-service \
+              property-service \
+              payment-service \
+              search-service \
+              wallet-service \
+              chat-service \
+              ai-worker-service
+
+            echo "=== Start nginx ==="
+            docker compose up -d nginx-proxy
+
+            echo "=== Show containers ==="
+            docker ps -a
+
+            echo "=== Cleanup Docker build cache ==="
+            docker builder prune -f
