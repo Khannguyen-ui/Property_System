@@ -1,4 +1,4 @@
-name: Deploy HomeVerse to VPS
+name: Deploy HomeVerse Production to VPS
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Contabo VPS
+    name: Deploy Production to Contabo VPS
     runs-on: ubuntu-latest
 
     steps:
@@ -29,6 +29,10 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            echo "=== Check required production files ==="
+            test -f docker-compose.prod.yml
+            test -f .env.prod
+
             echo "=== Check Docker ==="
             docker --version
             docker compose version
@@ -41,37 +45,11 @@ jobs:
               maven:3.9.9-eclipse-temurin-21 \
               mvn clean package -DskipTests
 
-            echo "=== Build Docker images ==="
-            docker compose build \
-              identity-service \
-              customer-service \
-              media-service \
-              notification-service \
-              property-service \
-              payment-service \
-              search-service \
-              wallet-service \
-              chat-service \
-              ai-worker-service
+            echo "=== Build production Docker images ==="
+            docker compose --env-file .env.prod -f docker-compose.prod.yml build
 
-            echo "=== Start infrastructure ==="
-            docker compose up -d zookeeper kafka redis mongodb
-
-            echo "=== Start backend services ==="
-            docker compose up -d \
-              identity-service \
-              customer-service \
-              media-service \
-              notification-service \
-              property-service \
-              payment-service \
-              search-service \
-              wallet-service \
-              chat-service \
-              ai-worker-service
-
-            echo "=== Start nginx ==="
-            docker compose up -d nginx-proxy
+            echo "=== Start production stack ==="
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 
             echo "=== Show containers ==="
             docker ps -a
