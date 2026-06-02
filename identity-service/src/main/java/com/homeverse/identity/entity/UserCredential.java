@@ -22,6 +22,9 @@ public class UserCredential implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "public_id", nullable = false, unique = true, updatable = false)
+    private String publicId;
+
     @Column(unique = true, nullable = false)
     private String email;
 
@@ -49,9 +52,15 @@ public class UserCredential implements UserDetails {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         isActive = true;
+
+        if (publicId == null || publicId.isBlank()) {
+            publicId = java.util.UUID.randomUUID().toString();
+        }
+
         if (kycStatus == null) {
             kycStatus = "UNVERIFIED";
         }
+
         if (freePostsRemaining == null) {
             freePostsRemaining = 8;
         }
