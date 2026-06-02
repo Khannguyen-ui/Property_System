@@ -14,6 +14,7 @@ public class PropertyResponseDTO {
     private BigDecimal price;
     private String address;
     private String videoUrl;
+    private List<String> images;
     private LocalDateTime createdAt;
     private Boolean isPromoted;
     private String itemType;
@@ -22,4 +23,10 @@ public class PropertyResponseDTO {
     private Long ownerId;
     private List<String> reasons;
     private Double ownerTrustScore;
+    private Long viewCount;
+    private Long likeCount;
+    private Long saveCount;
+    private Boolean isLiked;
+    private Boolean isSaved;
+    private Long commentCount;
 }

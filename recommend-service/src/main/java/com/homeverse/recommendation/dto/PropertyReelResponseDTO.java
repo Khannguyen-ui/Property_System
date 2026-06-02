@@ -21,12 +21,12 @@ public class PropertyReelResponseDTO {
 
     private String videoUrl;
 
-    private boolean isLiked;
-
-    private boolean isSaved;
-
+    private Long viewCount;
     private Long likeCount;
-
+    private Long saveCount;
+    private Boolean isLiked;
+    private Boolean isSaved;
+    private Long commentCount;
     private String ownerSlug;
 
     private String ownerNameSnapshot;

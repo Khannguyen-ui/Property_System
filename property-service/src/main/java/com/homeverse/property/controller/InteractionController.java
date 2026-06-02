@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.repository.PropertyRepository;
+
 @RestController
 @RequestMapping("/properties")
 @RequiredArgsConstructor
@@ -19,6 +20,7 @@ public class InteractionController {
     private final InteractionService interactionService;
     private final RecommendClient recommendClient;
     private final PropertyRepository propertyRepository;
+
     @PostMapping("/{id}/like")
     public ResponseEntity<String> toggleLike(
             Authentication authentication,
@@ -68,6 +70,23 @@ public class InteractionController {
         return ResponseEntity.ok(interactionService.getLikedProperties(userId, guestId, page, size));
     }
 
+ @PostMapping("/{id}/view")
+public ResponseEntity<String> trackView(
+        Authentication authentication,
+        @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
+        @PathVariable Long id
+) {
+    Long userId = extractUserId(authentication);
+
+    interactionService.trackView(userId, guestId, id);
+
+    if (userId != null) {
+        trackInteraction(userId, id, "VIEW");
+    }
+
+    return ResponseEntity.ok("View tracked");
+}
+
     @GetMapping("/me/saved")
     public ResponseEntity<Page<InteractionPropertyDTO>> getMySavedProperties(
             Authentication authentication,
@@ -82,53 +101,47 @@ public class InteractionController {
     }
 
     private void trackInteraction(Long userId, Long propertyId, String action) {
-    try {
-        Property property = propertyRepository.findById(propertyId)
-                .orElse(null);
+        try {
+            Property property = propertyRepository.findById(propertyId)
+                    .orElse(null);
 
-        if (property == null) {
-            return;
+            if (property == null) {
+                return;
+            }
+
+            recommendClient.track(
+                    TrackEventRequest.builder()
+                            .userId(userId)
+                            .itemId(propertyId)
+                            .itemType(
+                                    property.getVideoUrl() != null && !property.getVideoUrl().isBlank()
+                                            ? "reel"
+                                            : "property")
+                            .action(action)
+                            .watchTime(0.0)
+                            .duration(1.0)
+                            .price(
+                                    property.getPrice() != null
+                                            ? property.getPrice().doubleValue()
+                                            : 0.0)
+                            .userBudget(
+                                    property.getPrice() != null
+                                            ? property.getPrice().doubleValue()
+                                            : 0.0)
+                            .locationMatch(
+                                    property.getDistrict() != null && !property.getDistrict().isBlank()
+                                            ? 1
+                                            : 0)
+                            .categoryMatch(
+                                    property.getPropertyType() != null
+                                            ? 1
+                                            : 0)
+                            .district(property.getDistrict())
+                            .build());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        recommendClient.track(
-                TrackEventRequest.builder()
-                        .userId(userId)
-                        .itemId(propertyId)
-                        .itemType(
-                                property.getVideoUrl() != null && !property.getVideoUrl().isBlank()
-                                        ? "reel"
-                                        : "property"
-                        )
-                        .action(action)
-                        .watchTime(0.0)
-                        .duration(1.0)
-                        .price(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0
-                        )
-                        .userBudget(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0
-                        )
-                        .locationMatch(
-                                property.getDistrict() != null && !property.getDistrict().isBlank()
-                                        ? 1
-                                        : 0
-                        )
-                        .categoryMatch(
-                                property.getPropertyType() != null
-                                        ? 1
-                                        : 0
-                        )
-                        .district(property.getDistrict())
-                        .build()
-        );
-    } catch (Exception e) {
-        e.printStackTrace();
     }
-}
 
     private Long extractUserId(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {

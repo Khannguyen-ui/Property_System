@@ -8,9 +8,12 @@ import com.homeverse.property.entity.OutboxEvent;
 import com.homeverse.property.entity.OwnerQuota;
 import com.homeverse.property.entity.PromotionQueue;
 import com.homeverse.property.entity.Property;
+import com.homeverse.property.entity.UserPropertyInteraction;
+import com.homeverse.property.repository.InteractionRepository;
 import com.homeverse.property.repository.OutboxRepository;
 import com.homeverse.property.repository.OwnerQuotaRepository;
 import com.homeverse.property.repository.PromotionQueueRepository;
+import com.homeverse.property.repository.PropertyCommentRepository;
 import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.service.AdminPropertyService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +38,10 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     private final OutboxRepository outboxRepository;
     private final PromotionQueueRepository promotionQueueRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final InteractionRepository interactionRepository;
+    private final PropertyCommentRepository commentRepository;
+
     // ==========================================
     // 1. XEM DANH SÁCH (CÓ BỘ LỌC)
     // ==========================================
@@ -69,82 +77,82 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     }
 
     @Override
-@Transactional(rollbackFor = Exception.class)
-public void updatePropertyStatus(Long adminId, Long id, String statusStr) {
-    Property property = propertyRepository.findById(id)
-            .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePropertyStatus(Long adminId, Long id, String statusStr) {
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
 
-    try {
-        Property.Status newStatus = Property.Status.valueOf(statusStr.toUpperCase());
-        Property.Status oldStatus = property.getStatus();
+        try {
+            Property.Status newStatus = Property.Status.valueOf(statusStr.toUpperCase());
+            Property.Status oldStatus = property.getStatus();
 
-        if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.ACTIVE) {
-            if (!property.isQuotaDeducted()) {
-                OwnerQuota quota = ownerQuotaRepository.findById(property.getOwnerId())
-                        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+            if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.ACTIVE) {
+                if (!property.isQuotaDeducted()) {
+                    OwnerQuota quota = ownerQuotaRepository.findById(property.getOwnerId())
+                            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
-                if (quota.getFreePostsRemaining() <= 0) {
-                    throw new AppException(ErrorCode.POST_LIMIT_EXCEEDED);
+                    if (quota.getFreePostsRemaining() <= 0) {
+                        throw new AppException(ErrorCode.POST_LIMIT_EXCEEDED);
+                    }
+
+                    quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
+                    ownerQuotaRepository.save(quota);
+                    property.setQuotaDeducted(true);
                 }
 
-                quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
-                ownerQuotaRepository.save(quota);
-                property.setQuotaDeducted(true);
+                promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
+                        id, PromotionQueue.PromotionStatus.WAITING).ifPresent(nextQueue -> {
+                            LocalDateTime now = LocalDateTime.now();
+                            nextQueue.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
+                            nextQueue.setActivatedAt(now);
+                            nextQueue.setExpiresAt(now.plusDays(nextQueue.getDurationDays()));
+                            promotionQueueRepository.save(nextQueue);
+
+                            property.setIsPromoted(true);
+                            property.setPromotionPackageId(nextQueue.getPackageId());
+                            property.setPromotionPackageName(nextQueue.getPackageName());
+                            property.setPromotionExpiresAt(nextQueue.getExpiresAt());
+                        });
+            } else if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.REJECTED) {
+
+                List<PromotionQueue> waitingQueues = promotionQueueRepository
+                        .findByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
+                                id, PromotionQueue.PromotionStatus.WAITING);
+
+                for (PromotionQueue queue : waitingQueues) {
+                    RefundEvent refundEvent = RefundEvent.builder()
+                            .userId(property.getOwnerId())
+                            .amount(queue.getAmount())
+                            .transactionId(queue.getTransactionId())
+                            .reason("Admin rejected property ID: " + id)
+                            .build();
+
+                    outboxRepository.save(OutboxEvent.builder()
+                            .topic("refund-payment-topic")
+                            .payload(objectMapper.writeValueAsString(refundEvent))
+                            .status("PENDING")
+                            .createdAt(LocalDateTime.now())
+                            .build());
+
+                    queue.setStatus(PromotionQueue.PromotionStatus.CANCELLED);
+                    promotionQueueRepository.save(queue);
+                }
+
+                if (property.isQuotaDeducted()) {
+                    property.setQuotaDeducted(false);
+                }
+
+                log.info("🚫 Admin rejected Property ID {}: Refund processed and promotions cancelled.", id);
             }
 
-            promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
-                    id, PromotionQueue.PromotionStatus.WAITING).ifPresent(nextQueue -> {
-                LocalDateTime now = LocalDateTime.now();
-                nextQueue.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
-                nextQueue.setActivatedAt(now);
-                nextQueue.setExpiresAt(now.plusDays(nextQueue.getDurationDays()));
-                promotionQueueRepository.save(nextQueue);
+            property.setStatus(newStatus);
+            propertyRepository.saveAndFlush(property);
 
-                property.setIsPromoted(true);
-                property.setPromotionPackageId(nextQueue.getPackageId());
-                property.setPromotionPackageName(nextQueue.getPackageName());
-                property.setPromotionExpiresAt(nextQueue.getExpiresAt());
-            });
-        } 
-        else if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.REJECTED) {
-            
-            List<PromotionQueue> waitingQueues = promotionQueueRepository.findByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
-                    id, PromotionQueue.PromotionStatus.WAITING);
-
-            for (PromotionQueue queue : waitingQueues) {
-                RefundEvent refundEvent = RefundEvent.builder()
-                        .userId(property.getOwnerId())
-                        .amount(queue.getAmount())
-                        .transactionId(queue.getTransactionId())
-                        .reason("Admin rejected property ID: " + id)
-                        .build();
-
-                outboxRepository.save(OutboxEvent.builder()
-                        .topic("refund-payment-topic")
-                        .payload(objectMapper.writeValueAsString(refundEvent))
-                        .status("PENDING")
-                        .createdAt(LocalDateTime.now())
-                        .build());
-
-                queue.setStatus(PromotionQueue.PromotionStatus.CANCELLED);
-                promotionQueueRepository.save(queue);
-            }
-
-            if (property.isQuotaDeducted()) {
-                property.setQuotaDeducted(false);
-            }
-
-            log.info("🚫 Admin rejected Property ID {}: Refund processed and promotions cancelled.", id);
+        } catch (Exception e) {
+            log.error("Error updating property status: ", e);
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
-
-        property.setStatus(newStatus);
-        propertyRepository.saveAndFlush(property);
-
-    } catch (Exception e) {
-        log.error("Error updating property status: ", e);
-        throw new AppException(ErrorCode.INVALID_REQUEST);
     }
-}
 
     // ==========================================
     // 4. XÓA MỀM (GỠ BÀI VI PHẠM)
@@ -208,15 +216,145 @@ public void updatePropertyStatus(Long adminId, Long id, String statusStr) {
     // HELPER: MAPPER
     // ==========================================
     private PropertyResponseDTO mapToResponse(Property property) {
-        // Sếp copy logic map Entity sang DTO từ PropertyServiceImpl sang đây nhé.
-        // Hoặc dùng MapStruct / ModelMapper nếu sếp có cài.
         PropertyResponseDTO dto = new PropertyResponseDTO();
+
         dto.setId(property.getId());
+        dto.setProjectId(property.getProjectId());
         dto.setTitle(property.getTitle());
+        dto.setDescription(property.getDescription());
         dto.setPrice(property.getPrice());
-        dto.setStatus(property.getStatus().name());
+        dto.setPricePerSqm(property.getPricePerSqm());
+        dto.setArea(property.getArea());
+        dto.setAddress(property.getAddress());
+        dto.setProvince(property.getProvince());
+        dto.setStreet(property.getStreet());
+        dto.setWard(property.getWard());
+        dto.setDistrict(property.getDistrict());
+
+        if (property.getLocation() != null) {
+            dto.setLongitude(property.getLocation().getX());
+            dto.setLatitude(property.getLocation().getY());
+        }
+        if (property.getPropertyType() != null) {
+            dto.setPropertyType(property.getPropertyType().name());
+        }
+        if (property.getTransactionType() != null) {
+            dto.setTransactionType(property.getTransactionType().name());
+        }
+        if (property.getStatus() != null) {
+            dto.setStatus(property.getStatus().name());
+        }
+        if (property.getLegalDocumentType() != null) {
+            dto.setLegalDocumentType(property.getLegalDocumentType().name());
+        }
+
+        dto.setCapacity(property.getCapacity());
+        dto.setImages(property.getImages());
+        dto.setAmenities(property.getAmenities());
+        dto.setVideoUrl(property.getVideoUrl());
+        dto.setProjectNameSnapshot(property.getProjectNameSnapshot());
+        dto.setQuotaDeducted(property.isQuotaDeducted());
+
+        // --- BỔ SUNG PROMOTION TẠI ĐÂY ---
+        dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
+        dto.setPromotionExpiresAt(property.getPromotionExpiresAt());
+        dto.setPromotionPackageId(property.getPromotionPackageId());
+        dto.setPromotionPackageName(property.getPromotionPackageName());
+        // --------------------------------
+
         dto.setOwnerId(property.getOwnerId());
-        // ... set các trường khác
+        dto.setOwnerNameSnapshot(property.getOwnerNameSnapshot());
+        dto.setOwnerAvatarSnapshot(property.getOwnerAvatarSnapshot());
+        dto.setOwnerSlugSnapshot(property.getOwnerSlugSnapshot());
+        dto.setOwnerPhoneSnapshot(property.getOwnerPhoneSnapshot());
+        dto.setCreatedAt(property.getCreatedAt());
+        dto.setExpiresAt(property.getExpiresAt());
+        dto.setBedrooms(property.getBedrooms());
+        dto.setBathrooms(property.getBathrooms());
+        dto.setHasBalcony(property.getHasBalcony());
+
+        if (property.getFurnishingStatus() != null)
+            dto.setFurnishingStatus(property.getFurnishingStatus().name());
+        if (property.getAvailabilityStatus() != null)
+            dto.setAvailabilityStatus(property.getAvailabilityStatus().name());
+        if (property.getElectricityPrice() != null)
+            dto.setElectricityPrice(property.getElectricityPrice().name());
+        if (property.getWaterPrice() != null)
+            dto.setWaterPrice(property.getWaterPrice().name());
+        if (property.getInternetPrice() != null)
+            dto.setInternetPrice(property.getInternetPrice().name());
+
+        if (property.getInternetPrice() != null)
+            dto.setInternetPrice(property.getInternetPrice().name());
+
+        Long propertyId = property.getId();
+
+        String likeStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":likes");
+
+        String saveStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":saves");
+
+        Long likeCount = likeStr != null
+                ? Long.parseLong(likeStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.LIKE);
+
+        if (likeCount < 0) {
+            likeCount = interactionRepository.countByPropertyIdAndInteractionType(
+                    propertyId,
+                    UserPropertyInteraction.InteractionType.LIKE);
+
+            redisTemplate.opsForValue().set(
+                    "property:" + propertyId + ":likes",
+                    String.valueOf(likeCount));
+        }
+
+        Long saveCount = saveStr != null
+                ? Long.parseLong(saveStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.SAVE);
+
+        if (saveCount < 0) {
+            saveCount = interactionRepository.countByPropertyIdAndInteractionType(
+                    propertyId,
+                    UserPropertyInteraction.InteractionType.SAVE);
+
+            redisTemplate.opsForValue().set(
+                    "property:" + propertyId + ":saves",
+                    String.valueOf(saveCount));
+        }
+
+        dto.setLikeCount(likeCount);
+        dto.setSaveCount(saveCount);
+        String viewStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":views");
+        String commentStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":comments");
+
+        Long commentCount = commentStr != null
+                ? Long.parseLong(commentStr)
+                : commentRepository.countByPropertyId(propertyId);
+
+        if (commentCount < 0) {
+            commentCount = commentRepository.countByPropertyId(propertyId);
+
+            redisTemplate.opsForValue().set(
+                    "property:" + propertyId + ":comments",
+                    String.valueOf(commentCount));
+        }
+        dto.setLikeCount(likeCount);
+        dto.setSaveCount(saveCount);
+        dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
+        dto.setCommentCount(commentCount);
+        dto.setIsLiked(false);
+        dto.setIsSaved(false);
+        System.out.println("ADMIN MAPPER RUNNING ID = " + property.getId());
+        System.out.println("ADMIN LIKE = " + dto.getLikeCount());
+        System.out.println("ADMIN SAVE = " + dto.getSaveCount());
+        System.out.println("ADMIN VIEW = " + dto.getViewCount());
         return dto;
     }
 }

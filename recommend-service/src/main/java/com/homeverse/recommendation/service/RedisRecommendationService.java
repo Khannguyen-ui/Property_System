@@ -68,10 +68,17 @@ public class RedisRecommendationService {
                                 .address(property.getAddress())
                                 .district(property.getDistrict())
                                 .videoUrl(property.getVideoUrl())
+                                .images(property.getImages())
                                 .ownerId(property.getOwnerId())
                                 .ownerTrustScore(getOwnerTrustScore(property.getOwnerId()))
                                 .createdAt(property.getCreatedAt())
                                 .isPromoted(property.getIsPromoted())
+                                .likeCount(property.getLikeCount())
+                                .saveCount(property.getSaveCount())
+                                .viewCount(property.getViewCount())
+                                .isLiked(property.getIsLiked())
+                                .isSaved(property.getIsSaved())
+                                .commentCount(property.getCommentCount())
                                 .build());
             } catch (Exception ignored) {
             }
@@ -119,9 +126,12 @@ public class RedisRecommendationService {
                                 .price(reel.getPrice())
                                 .address(reel.getAddress())
                                 .videoUrl(reel.getVideoUrl())
-                                .isLiked(reel.isLiked())
-                                .isSaved(reel.isSaved())
+                                .isLiked(reel.getIsLiked())
+                                .isSaved(reel.getIsSaved())
                                 .likeCount(reel.getLikeCount())
+                                .saveCount(reel.getSaveCount())
+                                .viewCount(reel.getViewCount())
+                                .commentCount(reel.getCommentCount())
                                 .ownerSlug(reel.getOwnerSlug())
                                 .ownerNameSnapshot(reel.getOwnerNameSnapshot())
                                 .ownerAvatarSnapshot(reel.getOwnerAvatarSnapshot())
@@ -267,11 +277,11 @@ public class RedisRecommendationService {
         System.out.println("TRENDING SIZE = " + trending.size());
         System.out.println("RANDOM SIZE = " + random.size());
         System.out.println("RESULT SIZE = " + result.size());
-         System.out.println("COMBINED SIZE = " + combined.size());
+        System.out.println("COMBINED SIZE = " + combined.size());
         return finalRankingService.rankProperties(
-            combined,
-            preferredDistrict,
-            profile);
+                combined,
+                preferredDistrict,
+                profile);
     }
 
     public List<PropertyReelResponseDTO> getFinalRecommendedReels(Long userId) {
@@ -427,8 +437,24 @@ public class RedisRecommendationService {
                     if (item.getId() == null) {
                         return;
                     }
-
                     item.setItemType(itemType);
+                    try {
+                        PropertyResponseDTO full = propertyClient.getPropertyById(item.getId());
+
+                        if (full != null) {
+                            item.setLikeCount(full.getLikeCount());
+                            item.setSaveCount(full.getSaveCount());
+                            item.setViewCount(full.getViewCount());
+                            item.setIsLiked(full.getIsLiked());
+                            item.setIsSaved(full.getIsSaved());
+                            item.setCommentCount(full.getCommentCount());
+                        }
+                    } catch (Exception ignored) {
+                    }
+
+                    if (item.getScore() == null && score != null) {
+                        item.setScore(score);
+                    }
 
                     if (item.getScore() == null && score != null) {
                         item.setScore(score);
@@ -473,6 +499,33 @@ public class RedisRecommendationService {
                     }
 
                     item.setItemType(itemType);
+
+                    if (item.getLikeCount() == null
+                            || item.getSaveCount() == null
+                            || item.getViewCount() == null
+                            || item.getCommentCount() == null) {
+
+                        try {
+                            ApiResponse<PropertyReelResponseDTO> response = propertyClient.getReelById(item.getId());
+
+                            if (response != null && response.getResult() != null) {
+
+                                PropertyReelResponseDTO fullReel = response.getResult();
+
+                                item.setLikeCount(fullReel.getLikeCount());
+                                item.setSaveCount(fullReel.getSaveCount());
+                                item.setViewCount(fullReel.getViewCount());
+                                item.setIsLiked(fullReel.getIsLiked());
+                                item.setIsSaved(fullReel.getIsSaved());
+                                item.setCommentCount(fullReel.getCommentCount());
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    if (item.getScore() == null && score != null) {
+                        item.setScore(score);
+                    }
 
                     if (item.getScore() == null && score != null) {
                         item.setScore(score);

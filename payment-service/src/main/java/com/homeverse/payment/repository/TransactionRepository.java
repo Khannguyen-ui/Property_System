@@ -14,4 +14,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
 
     boolean existsByVnpayCode(String vnpayCode);
+    List<Transaction> findAllByOrderByCreatedAtDesc();
 }

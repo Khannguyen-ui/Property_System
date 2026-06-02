@@ -13,10 +13,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InteractionServiceImpl implements InteractionService {
@@ -56,13 +56,20 @@ public class InteractionServiceImpl implements InteractionService {
                 .map(property -> toInteractionPropertyDTO(property, isLiked(userId, guestId, property.getId()), true));
     }
 
-    private boolean handleToggle(Long userId, String guestId, Long propertyId, InteractionType type, String redisKeySuffix) {
+    private boolean handleToggle(Long userId, String guestId, Long propertyId, InteractionType type,
+            String redisKeySuffix) {
         var existing = interactionRepository.findInteraction(userId, guestId, propertyId, type);
         String redisKey = "property:" + propertyId + ":" + redisKeySuffix;
 
         if (existing.isPresent()) {
             interactionRepository.delete(existing.get());
-            redisTemplate.opsForValue().decrement(redisKey);
+
+            Long current = redisTemplate.opsForValue().decrement(redisKey);
+
+            if (current == null || current < 0) {
+                redisTemplate.opsForValue().set(redisKey, "0");
+            }
+
             return false;
         } else {
             interactionRepository.save(UserPropertyInteraction.builder()
@@ -117,4 +124,16 @@ public class InteractionServiceImpl implements InteractionService {
                 .findFirst()
                 .orElse(null);
     }
+    public void trackView(Long userId, String guestId, Long propertyId) {
+
+    redisTemplate.opsForValue()
+            .increment("property:" + propertyId + ":views");
+
+    log.info(
+            "View tracked: property={}, user={}, guest={}",
+            propertyId,
+            userId,
+            guestId
+    );
+}
 }

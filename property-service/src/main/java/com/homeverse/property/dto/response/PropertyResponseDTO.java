@@ -33,6 +33,13 @@ public class PropertyResponseDTO {
     private List<String> images;
     private List<String> amenities;
     private String videoUrl;
+    private Long viewCount;
+    private Long likeCount;
+    private Long saveCount;
+    private Long commentCount;
+
+    private Boolean isLiked;
+    private Boolean isSaved;
     private boolean isQuotaDeducted;
 
     private String status;

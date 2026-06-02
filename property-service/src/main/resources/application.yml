@@ -9,6 +9,9 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
   jpa:
     hibernate:
       ddl-auto: update
@@ -38,7 +41,8 @@ spring:
 homeverse:
   services:
     identity: ${IDENTITY_SERVICE_URL:http://localhost:8081}
-    recommend-service:url: http://recommend-service:8092
+    recommend-service:
+      url: ${RECOMMEND_SERVICE_URL:http://recommend-service:8092}
 
 jwt:
   secret: ${JWT_SECRET}

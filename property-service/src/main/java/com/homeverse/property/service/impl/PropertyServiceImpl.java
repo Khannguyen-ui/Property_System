@@ -28,8 +28,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.homeverse.property.dto.response.OwnerPublicPropertiesResponse;
-import com.homeverse.property.dto.response.PropertyTypeCountDTO;
+import com.homeverse.property.repository.PropertyCommentRepository;
+import com.homeverse.property.entity.PropertyComment;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,6 +50,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final com.homeverse.property.repository.InteractionRepository interactionRepository;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final PromotionQueueRepository promotionQueueRepository;
+    private final PropertyCommentRepository commentRepository;
 
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -308,14 +309,14 @@ public class PropertyServiceImpl implements PropertyService {
 
         return mapToResponse(property);
     }
+
     @Override
     @Transactional(readOnly = true)
     public OwnerPublicPropertiesResponse getOwnerPublicProperties(
             Long ownerId,
             int page,
             int size,
-            String propertyType
-    ) {
+            String propertyType) {
         Pageable pageable = PageRequest.of(page, size);
 
         Page<Property> propertyPage;
@@ -334,24 +335,20 @@ public class PropertyServiceImpl implements PropertyService {
                             ownerId,
                             Property.Status.ACTIVE,
                             type,
-                            pageable
-                    );
+                            pageable);
         } else {
             propertyPage = propertyRepository
                     .findByOwnerIdAndStatusOrderByCreatedAtDesc(
                             ownerId,
                             Property.Status.ACTIVE,
-                            pageable
-                    );
+                            pageable);
         }
 
         Page<PropertyResponseDTO> properties = propertyPage.map(this::mapToResponse);
 
-        List<PropertyTypeCountDTO> typeCounts =
-                propertyRepository.countByOwnerIdAndStatusGroupByPropertyType(
-                        ownerId,
-                        Property.Status.ACTIVE
-                );
+        List<PropertyTypeCountDTO> typeCounts = propertyRepository.countByOwnerIdAndStatusGroupByPropertyType(
+                ownerId,
+                Property.Status.ACTIVE);
 
         Long totalActivePosts = typeCounts.stream()
                 .mapToLong(PropertyTypeCountDTO::getTotal)
@@ -395,15 +392,13 @@ public class PropertyServiceImpl implements PropertyService {
         if (lastCreatedAt == null || lastId == null) {
             properties = propertyRepository.findFirstReelsFeed(
                     Property.Status.ACTIVE.name(),
-                    size
-            );
+                    size);
         } else {
             properties = propertyRepository.findNextReelsFeed(
                     Property.Status.ACTIVE.name(),
                     lastCreatedAt,
                     lastId,
-                    size
-            );
+                    size);
         }
 
         // Thoát sớm nếu không có dữ liệu để tiết kiệm tài nguyên
@@ -514,16 +509,16 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
-public List<PropertyResponseDTO> getRandomProperties() {
-    List<PropertyResponseDTO> result = propertyRepository.findRandomProperties()
-            .stream()
-            .map(this::mapToResponse)
-            .toList();
+    public List<PropertyResponseDTO> getRandomProperties() {
+        List<PropertyResponseDTO> result = propertyRepository.findRandomProperties()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
 
-    System.out.println("RANDOM PROPERTY SIZE = " + result.size());
+        System.out.println("RANDOM PROPERTY SIZE = " + result.size());
 
-    return result;
-}
+        return result;
+    }
 
     @Override
     public List<PropertyReelResponseDTO> getPromotedReels() {
@@ -558,8 +553,7 @@ public List<PropertyResponseDTO> getRandomProperties() {
             Long ownerId,
             int page,
             int size,
-            String transactionType
-    ) {
+            String transactionType) {
         Pageable pageable = PageRequest.of(page, size);
 
         if (transactionType != null && !transactionType.isBlank()) {
@@ -576,8 +570,7 @@ public List<PropertyResponseDTO> getRandomProperties() {
                             ownerId,
                             Property.Status.ACTIVE,
                             type,
-                            pageable
-                    )
+                            pageable)
                     .map(this::mapToResponse);
         }
 
@@ -585,8 +578,7 @@ public List<PropertyResponseDTO> getRandomProperties() {
                 .findByOwnerIdAndStatusOrderByCreatedAtDesc(
                         ownerId,
                         Property.Status.ACTIVE,
-                        pageable
-                )
+                        pageable)
                 .map(this::mapToResponse);
     }
 
@@ -736,6 +728,49 @@ public List<PropertyResponseDTO> getRandomProperties() {
         if (property.getInternetPrice() != null)
             dto.setInternetPrice(property.getInternetPrice().name());
 
+        if (property.getInternetPrice() != null)
+            dto.setInternetPrice(property.getInternetPrice().name());
+
+        Long propertyId = property.getId();
+
+        String likeStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":likes");
+
+        String saveStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":saves");
+
+        Long likeCount = likeStr != null
+                ? Long.parseLong(likeStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.LIKE);
+
+        Long saveCount = saveStr != null
+                ? Long.parseLong(saveStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.SAVE);
+
+        dto.setLikeCount(likeCount);
+        dto.setSaveCount(saveCount);
+        String viewStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":views");
+
+        dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
+        String commentStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":comments");
+
+        Long commentCount = commentStr != null
+                ? Long.parseLong(commentStr)
+                : commentRepository.countByPropertyIdAndStatus(
+                        propertyId,
+                        PropertyComment.Status.ACTIVE);
+
+        dto.setCommentCount(commentCount);
+
+        dto.setIsLiked(false);
+        dto.setIsSaved(false);
+
         return dto;
     }
 
@@ -755,7 +790,42 @@ public List<PropertyResponseDTO> getRandomProperties() {
         // Chỉ cần trả về IsPromoted để FE hiển thị badge "Vip/Hot"
         dto.setIsPromoted(property.getIsPromoted() != null && property.getIsPromoted());
         // ----------------------------------
+        Long propertyId = property.getId();
 
+        String likeStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":likes");
+
+        String saveStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":saves");
+
+        String viewStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":views");
+        String commentStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":comments");
+        Long likeCount = likeStr != null
+                ? Long.parseLong(likeStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.LIKE);
+
+        Long saveCount = saveStr != null
+                ? Long.parseLong(saveStr)
+                : interactionRepository.countByPropertyIdAndInteractionType(
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.SAVE);
+
+        dto.setLikeCount(likeCount);
+        dto.setSaveCount(saveCount);
+        dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
+        Long commentCount = commentStr != null
+                ? Long.parseLong(commentStr)
+                : commentRepository.countByPropertyIdAndStatus(
+                        propertyId,
+                        PropertyComment.Status.ACTIVE);
+
+        dto.setCommentCount(commentCount);
+        dto.setLiked(false);
+        dto.setSaved(false);
         return dto;
     }
 }

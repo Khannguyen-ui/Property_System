@@ -9,6 +9,7 @@ ACTION_WEIGHT = {
     "CLICK": 0.5,
     "LIKE": 0.8,
     "SAVE": 0.9,
+    "COMMENT": 0.95,
     "CONTACT": 1.0,
     "SHARE": 0.7
 }

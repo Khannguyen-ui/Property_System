@@ -22,7 +22,13 @@ public class TransactionController {
     }
 
     @PostMapping("/purchase-package")
-    public ResponseEntity<?> purchasePackage(@RequestParam Long userId, @RequestParam Long packageId){
+    public ResponseEntity<?> purchasePackage(@RequestParam Long userId, @RequestParam Long packageId) {
         return ResponseEntity.ok("Giao dịch đang được xử lý qua Identity Service...");
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<Transaction>> getAllTransactions() {
+        return ResponseEntity.ok(
+                transactionRepository.findAllByOrderByCreatedAtDesc());
     }
 }

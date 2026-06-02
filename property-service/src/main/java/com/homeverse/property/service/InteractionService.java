@@ -12,4 +12,5 @@ public interface InteractionService {
     Page<InteractionPropertyDTO> getLikedProperties(Long userId, String guestId, int page, int size);
 
     Page<InteractionPropertyDTO> getSavedProperties(Long userId, String guestId, int page, int size);
+    void trackView(Long userId, String guestId, Long propertyId);
 }

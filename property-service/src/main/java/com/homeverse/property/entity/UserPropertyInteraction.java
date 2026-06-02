@@ -48,7 +48,8 @@ public class UserPropertyInteraction {
 
     public enum InteractionType {
         LIKE,
-        SAVE
+        SAVE,
+        VIEW
     }
 
     @PrePersist

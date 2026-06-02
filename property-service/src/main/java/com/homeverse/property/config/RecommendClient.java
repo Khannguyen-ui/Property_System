@@ -3,13 +3,14 @@ package com.homeverse.property.config;
 import com.homeverse.property.dto.request.TrackEventRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "recommend-service",
-        url = "${services.recommend-service.url:http://localhost:8092}"
+        url = "${homeverse.services.recommend-service.url}"
 )
 public interface RecommendClient {
 
     @PostMapping("/recommend/track")
-    Object track(TrackEventRequest request);
+    Object track(@RequestBody TrackEventRequest request);
 }

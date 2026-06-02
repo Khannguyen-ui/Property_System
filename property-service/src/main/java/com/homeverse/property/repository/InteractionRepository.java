@@ -13,7 +13,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InteractionRepository extends JpaRepository<UserPropertyInteraction, Long> {
-
+    long countByPropertyIdAndInteractionType(
+        Long propertyId,
+        InteractionType interactionType
+);
     @Query("""
             SELECT u FROM UserPropertyInteraction u
             WHERE u.propertyId = :propertyId
