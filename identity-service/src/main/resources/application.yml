@@ -1,6 +1,6 @@
 server:
   port: 8081
-
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
 spring:
   application:
     name: identity-service
@@ -73,4 +73,6 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 frontend:
-  url: ${FRONTEND_URL:http://localhost:3000}
+  url: ${FRONTEND_URL:http://localhost:5173}
+
+

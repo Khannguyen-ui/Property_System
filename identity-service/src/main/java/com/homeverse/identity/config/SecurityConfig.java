@@ -57,8 +57,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://217.217.253.67", "http://localhost:5173"));
+
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://217.217.253.67",
+                "http://homeverse-bds.duckdns.org",
+                "https://homeverse-bds.duckdns.org"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
