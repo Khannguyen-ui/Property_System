@@ -828,4 +828,69 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setSaved(false);
         return dto;
     }
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PropertyResponseDTO> getMyProperties(
+            Long ownerId,
+            int page,
+            int size,
+            String status,
+            String transactionType
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Property.Status statusEnum = null;
+        Property.TransactionType transactionTypeEnum = null;
+
+        if (status != null && !status.isBlank()) {
+            try {
+                statusEnum = Property.Status.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+
+        if (transactionType != null && !transactionType.isBlank()) {
+            try {
+                transactionTypeEnum = Property.TransactionType.valueOf(transactionType.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+
+        if (statusEnum != null && transactionTypeEnum != null) {
+            return propertyRepository
+                    .findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            statusEnum,
+                            transactionTypeEnum,
+                            pageable
+                    )
+                    .map(this::mapToResponse);
+        }
+
+        if (statusEnum != null) {
+            return propertyRepository
+                    .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                            ownerId,
+                            statusEnum,
+                            pageable
+                    )
+                    .map(this::mapToResponse);
+        }
+
+        if (transactionTypeEnum != null) {
+            return propertyRepository
+                    .findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
+                            ownerId,
+                            transactionTypeEnum,
+                            pageable
+                    )
+                    .map(this::mapToResponse);
+        }
+
+        return propertyRepository
+                .findByOwnerIdOrderByCreatedAtDesc(ownerId, pageable)
+                .map(this::mapToResponse);
+    }
 }

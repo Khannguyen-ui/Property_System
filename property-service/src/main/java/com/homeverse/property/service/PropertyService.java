@@ -59,4 +59,11 @@ public interface PropertyService {
             int size,
             String propertyType
     );
+    Page<PropertyResponseDTO> getMyProperties(
+            Long ownerId,
+            int page,
+            int size,
+            String status,
+            String transactionType
+    );
 }
