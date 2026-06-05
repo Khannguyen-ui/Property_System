@@ -59,4 +59,8 @@ public interface PropertyService {
             int size,
             String propertyType
     );
+    void contactProperty(
+        Long userId,
+        Long propertyId
+);
 }

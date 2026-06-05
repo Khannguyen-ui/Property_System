@@ -32,5 +32,4 @@ public interface PropertyCommentRepository extends JpaRepository<PropertyComment
         WHERE c.parentId = :parentId
     """)
     int softDeleteRepliesByParentId(Long parentId);
-    long countByPropertyId(Long propertyId);
 }

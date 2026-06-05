@@ -13,8 +13,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.kafka.core.KafkaTemplate;
+import com.homeverse.common.dto.NotificationEvent;
+import com.homeverse.property.entity.Property;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +28,7 @@ public class PropertyCommentServiceImpl implements PropertyCommentService {
     private final StringRedisTemplate redisTemplate;
     private final RecommendClient recommendClient;
     private final PropertyRepository propertyRepository;
+    private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
 
     @Override
     @Transactional
@@ -68,69 +73,106 @@ public class PropertyCommentServiceImpl implements PropertyCommentService {
 
         trackComment(userId, request.getPropertyId());
 
+        sendCommentNotification(userId, request.getPropertyId());
+
         return toResponse(saved);
     }
-
-    private void trackComment(Long userId, Long propertyId) {
-
-    System.out.println("TRACK COMMENT CALLED userId=" + userId +
-            ", propertyId=" + propertyId);
-
-    if (userId == null) {
-        System.out.println("TRACK COMMENT SKIPPED: userId null");
+    private void sendCommentNotification(Long userId, Long propertyId) {
+    if (userId == null || propertyId == null) {
         return;
     }
 
     try {
-
         Property property = propertyRepository.findById(propertyId)
                 .orElse(null);
 
         if (property == null) {
-            System.out.println("TRACK COMMENT SKIPPED: property not found");
             return;
         }
 
-        System.out.println("BEFORE RECOMMEND TRACK");
+        if (property.getOwnerId() == null) {
+            return;
+        }
 
-        recommendClient.track(
-                TrackEventRequest.builder()
-                        .userId(userId)
-                        .itemId(propertyId)
-                        .itemType(
-                                property.getVideoUrl() != null
-                                        && !property.getVideoUrl().isBlank()
-                                        ? "reel"
-                                        : "property")
-                        .action("COMMENT")
-                        .watchTime(0.0)
-                        .duration(1.0)
-                        .price(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .userBudget(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .locationMatch(
-                                property.getDistrict() != null
-                                        ? 1
-                                        : 0)
-                        .categoryMatch(
-                                property.getPropertyType() != null
-                                        ? 1
-                                        : 0)
-                        .district(property.getDistrict())
-                        .build());
+        if (property.getOwnerId().equals(userId)) {
+            return;
+        }
 
-        System.out.println("AFTER RECOMMEND TRACK");
+        NotificationEvent event = NotificationEvent.builder()
+                .receiverId(property.getOwnerId())
+                .title("Bình luận mới")
+                .content("Có người vừa bình luận bài đăng của bạn")
+                .type("COMMENT_NEW")
+                .referenceId(propertyId)
+                .build();
+
+        kafkaTemplate.send("notification-topic", event);
 
     } catch (Exception e) {
-        System.out.println("TRACK COMMENT ERROR = " + e.getMessage());
         e.printStackTrace();
     }
 }
+
+    private void trackComment(Long userId, Long propertyId) {
+
+        System.out.println("TRACK COMMENT CALLED userId=" + userId +
+                ", propertyId=" + propertyId);
+
+        if (userId == null) {
+            System.out.println("TRACK COMMENT SKIPPED: userId null");
+            return;
+        }
+
+        try {
+
+            Property property = propertyRepository.findById(propertyId)
+                    .orElse(null);
+
+            if (property == null) {
+                System.out.println("TRACK COMMENT SKIPPED: property not found");
+                return;
+            }
+
+            System.out.println("BEFORE RECOMMEND TRACK");
+
+            recommendClient.track(
+                    TrackEventRequest.builder()
+                            .userId(userId)
+                            .itemId(propertyId)
+                            .itemType(
+                                    property.getVideoUrl() != null
+                                            && !property.getVideoUrl().isBlank()
+                                                    ? "reel"
+                                                    : "property")
+                            .action("COMMENT")
+                            .watchTime(0.0)
+                            .duration(1.0)
+                            .price(
+                                    property.getPrice() != null
+                                            ? property.getPrice().doubleValue()
+                                            : 0.0)
+                            .userBudget(
+                                    property.getPrice() != null
+                                            ? property.getPrice().doubleValue()
+                                            : 0.0)
+                            .locationMatch(
+                                    property.getDistrict() != null
+                                            ? 1
+                                            : 0)
+                            .categoryMatch(
+                                    property.getPropertyType() != null
+                                            ? 1
+                                            : 0)
+                            .district(property.getDistrict())
+                            .build());
+
+            System.out.println("AFTER RECOMMEND TRACK");
+
+        } catch (Exception e) {
+            System.out.println("TRACK COMMENT ERROR = " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)

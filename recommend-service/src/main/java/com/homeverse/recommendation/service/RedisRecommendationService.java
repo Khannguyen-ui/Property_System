@@ -13,6 +13,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -263,6 +264,7 @@ public class RedisRecommendationService {
         }
 
         List<PropertyResponseDTO> combined = new ArrayList<>(result.values());
+        boostFollowedOwnersForProperties(userId, combined);
 
         String preferredDistrict = sessionPreferenceService.getFavoriteDistrict(userId);
 
@@ -282,6 +284,49 @@ public class RedisRecommendationService {
                 combined,
                 preferredDistrict,
                 profile);
+    }
+
+    private void boostFollowedOwnersForProperties(
+            Long userId,
+            List<PropertyResponseDTO> items) {
+        if (userId == null || items == null || items.isEmpty()) {
+            return;
+        }
+
+        try {
+            List<Long> followedOwners = propertyClient.getFollowedOwnerIds(userId);
+
+            if (followedOwners == null || followedOwners.isEmpty()) {
+                return;
+            }
+
+            Set<Long> followedOwnerSet = new HashSet<>(followedOwners);
+
+            for (PropertyResponseDTO item : items) {
+                if (item.getOwnerId() == null) {
+                    continue;
+                }
+
+                if (followedOwnerSet.contains(item.getOwnerId())) {
+                    double currentScore = item.getScore() != null ? item.getScore() : 0.0;
+
+                    item.setScore(currentScore + 0.6);
+
+                    List<String> reasons = item.getReasons() != null
+                            ? new ArrayList<>(item.getReasons())
+                            : new ArrayList<>();
+
+                    if (!reasons.contains("FOLLOWING_OWNER")) {
+                        reasons.add("FOLLOWING_OWNER");
+                    }
+
+                    item.setReasons(reasons);
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public List<PropertyReelResponseDTO> getFinalRecommendedReels(Long userId) {
@@ -402,6 +447,7 @@ public class RedisRecommendationService {
         }
 
         List<PropertyReelResponseDTO> combined = new ArrayList<>(result.values());
+        boostFollowedOwnersForReels(userId, combined);
 
         String preferredDistrict = sessionPreferenceService.getFavoriteDistrict(userId);
 
@@ -416,6 +462,49 @@ public class RedisRecommendationService {
                 preferredDistrict,
                 profile);
     }
+    private void boostFollowedOwnersForReels(
+        Long userId,
+        List<PropertyReelResponseDTO> items
+) {
+    if (userId == null || items == null || items.isEmpty()) {
+        return;
+    }
+
+    try {
+        List<Long> followedOwners = propertyClient.getFollowedOwnerIds(userId);
+
+        if (followedOwners == null || followedOwners.isEmpty()) {
+            return;
+        }
+
+        Set<Long> followedOwnerSet = new HashSet<>(followedOwners);
+
+        for (PropertyReelResponseDTO item : items) {
+            if (item.getOwnerId() == null) {
+                continue;
+            }
+
+            if (followedOwnerSet.contains(item.getOwnerId())) {
+                double currentScore = item.getScore() != null ? item.getScore() : 0.0;
+
+                item.setScore(currentScore + 0.6);
+
+                List<String> reasons = item.getReasons() != null
+                        ? new ArrayList<>(item.getReasons())
+                        : new ArrayList<>();
+
+                if (!reasons.contains("FOLLOWING_OWNER")) {
+                    reasons.add("FOLLOWING_OWNER");
+                }
+
+                item.setReasons(reasons);
+            }
+        }
+
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
 
     private void addProperties(
             Map<Long, PropertyResponseDTO> result,

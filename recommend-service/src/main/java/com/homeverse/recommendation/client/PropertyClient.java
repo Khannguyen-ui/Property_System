@@ -35,6 +35,10 @@ public interface PropertyClient {
 
     @GetMapping("/public/properties/reels/random")
     ApiResponse<List<PropertyReelResponseDTO>> getRandomReels();
+
     @GetMapping("/public/properties/owners/{ownerId}/trust-score")
-ApiResponse<Double> getOwnerTrustScore(@PathVariable Long ownerId);
+    ApiResponse<Double> getOwnerTrustScore(@PathVariable Long ownerId);
+
+    @GetMapping("/owners/following/{followerId}")
+    List<Long> getFollowedOwnerIds(@PathVariable Long followerId);
 }

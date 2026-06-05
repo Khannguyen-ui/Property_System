@@ -37,7 +37,7 @@ public class PropertyResponseDTO {
     private Long likeCount;
     private Long saveCount;
     private Long commentCount;
-
+    private Long contactCount;
     private Boolean isLiked;
     private Boolean isSaved;
     private boolean isQuotaDeducted;

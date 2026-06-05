@@ -1,8 +1,11 @@
 package com.homeverse.property.service.impl;
 
+import com.homeverse.common.dto.NotificationEvent;
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
+import com.homeverse.property.config.RecommendClient;
 import com.homeverse.property.dto.request.PropertyCreateDTO;
+import com.homeverse.property.dto.request.TrackEventRequest;
 import com.homeverse.property.dto.response.*;
 import com.homeverse.property.entity.OwnerProfile;
 import com.homeverse.property.entity.OwnerQuota;
@@ -26,6 +29,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.homeverse.property.repository.PropertyCommentRepository;
@@ -51,7 +55,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final PromotionQueueRepository promotionQueueRepository;
     private final PropertyCommentRepository commentRepository;
-
+    private final RecommendClient recommendClient;
+    private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Override
@@ -759,6 +764,8 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
         String commentStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":comments");
+        String contactStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":contacts");
 
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
@@ -767,6 +774,10 @@ public class PropertyServiceImpl implements PropertyService {
                         PropertyComment.Status.ACTIVE);
 
         dto.setCommentCount(commentCount);
+        dto.setContactCount(
+                contactStr != null
+                        ? Long.parseLong(contactStr)
+                        : 0L);
 
         dto.setIsLiked(false);
         dto.setIsSaved(false);
@@ -802,6 +813,8 @@ public class PropertyServiceImpl implements PropertyService {
                 .get("property:" + propertyId + ":views");
         String commentStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":comments");
+        String contactStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":contacts");
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
@@ -817,6 +830,10 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setLikeCount(likeCount);
         dto.setSaveCount(saveCount);
         dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
+        dto.setContactCount(
+                contactStr != null
+                        ? Long.parseLong(contactStr)
+                        : 0L);
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
@@ -827,5 +844,72 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setLiked(false);
         dto.setSaved(false);
         return dto;
+    }
+
+    @Override
+    public void contactProperty(
+            Long userId,
+            Long propertyId) {
+
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow();
+        redisTemplate.opsForValue()
+                .increment("property:" + propertyId + ":contacts");
+
+        sendContactNotification(userId, property);
+
+        recommendClient.track(
+                TrackEventRequest.builder()
+                        .userId(userId)
+                        .itemId(propertyId)
+                        .itemType(
+                                property.getVideoUrl() != null
+                                        ? "reel"
+                                        : "property")
+                        .action("CONTACT")
+                        .watchTime(0.0)
+                        .duration(1.0)
+                        .price(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .userBudget(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .locationMatch(1)
+                        .categoryMatch(1)
+                        .district(property.getDistrict())
+                        .build());
+    }
+
+    private void sendContactNotification(Long userId, Property property) {
+        if (userId == null || property == null || property.getOwnerId() == null) {
+            return;
+        }
+
+        if (property.getOwnerId().equals(userId)) {
+            return;
+        }
+
+        try {
+            NotificationEvent event = NotificationEvent.builder()
+                    .receiverId(property.getOwnerId())
+                    .title("Có người liên hệ")
+                    .content("Có người vừa bấm liên hệ bài đăng của bạn")
+                    .type("PROPERTY_CONTACT")
+                    .referenceId(property.getId())
+                    .build();
+            System.out.println("SEND CONTACT NOTIFICATION = " + event);
+
+            kafkaTemplate.send("notification-topic", event);
+
+            System.out.println("SENT CONTACT NOTIFICATION OK");
+
+            kafkaTemplate.send("notification-topic", event);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

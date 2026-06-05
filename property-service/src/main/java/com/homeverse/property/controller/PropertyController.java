@@ -49,6 +49,7 @@ public class PropertyController {
         propertyService.deleteProperty(ownerId, id);
         return ResponseEntity.ok("Đã chuyển bài đăng vào thùng rác");
     }
+
     @GetMapping("/trash")
     public ResponseEntity<Page<PropertyResponseDTO>> getMyTrash(
             Authentication authentication,
@@ -58,6 +59,7 @@ public class PropertyController {
         Long ownerId = extractUserId(authentication);
         return ResponseEntity.ok(propertyService.getMyDeletedProperties(ownerId, page, size));
     }
+
     @PutMapping("/{id}/restore")
     public ResponseEntity<String> restoreProperty(
             Authentication authentication,
@@ -67,6 +69,7 @@ public class PropertyController {
         propertyService.restoreProperty(ownerId, id);
         return ResponseEntity.ok("Đã khôi phục bài đăng thành công!");
     }
+
     @DeleteMapping("/{id}/force")
     public ResponseEntity<String> hardDeleteProperty(
             Authentication authentication,
@@ -77,10 +80,20 @@ public class PropertyController {
         return ResponseEntity.ok("Đã xóa vĩnh viễn bài đăng khỏi hệ thống!");
     }
 
-
     // ================== Helper method ==================
     private Long extractUserId(Authentication authentication) {
         String userIdStr = (String) authentication.getPrincipal();
         return Long.valueOf(userIdStr);
+    }
+
+    @PostMapping("/{propertyId}/contact")
+    public ResponseEntity<Void> contactProperty(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long propertyId) {
+        propertyService.contactProperty(
+                userId,
+                propertyId);
+
+        return ResponseEntity.ok().build();
     }
 }

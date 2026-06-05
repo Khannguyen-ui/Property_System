@@ -12,8 +12,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -80,7 +82,9 @@ public class FinalRankingService {
             RankingConfig config) {
         double score = item.getScore() != null ? item.getScore() : 0.3;
 
-        List<String> reasons = new ArrayList<>();
+       Set<String> reasons = item.getReasons() != null
+        ? new LinkedHashSet<>(item.getReasons())
+        : new LinkedHashSet<>();
 
         if (Boolean.TRUE.equals(item.getIsPromoted())) {
             score += config.getPromotedBoost();
@@ -136,7 +140,7 @@ public class FinalRankingService {
             reasons.add("EXPLORE");
         }
 
-        item.setReasons(reasons);
+        item.setReasons(new ArrayList<>(reasons));
 
         return score;
     }
@@ -148,8 +152,9 @@ public class FinalRankingService {
             RankingConfig config) {
         double score = item.getScore() != null ? item.getScore() : 0.3;
 
-        List<String> reasons = new ArrayList<>();
-
+       Set<String> reasons = item.getReasons() != null
+        ? new LinkedHashSet<>(item.getReasons())
+        : new LinkedHashSet<>();
         if (Boolean.TRUE.equals(item.getIsPromoted())) {
             score += config.getPromotedBoost();
             reasons.add("PROMOTED");
@@ -187,7 +192,7 @@ public class FinalRankingService {
             reasons.add("EXPLORE");
         }
 
-        item.setReasons(reasons);
+        item.setReasons(new ArrayList<>(reasons));
 
         return score;
     }

@@ -3,11 +3,14 @@ package com.homeverse.property.service.impl;
 import com.homeverse.common.dto.RefundEvent;
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
+import com.homeverse.property.config.RecommendClient;
+import com.homeverse.property.dto.request.TrackEventRequest;
 import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.entity.OutboxEvent;
 import com.homeverse.property.entity.OwnerQuota;
 import com.homeverse.property.entity.PromotionQueue;
 import com.homeverse.property.entity.Property;
+import com.homeverse.property.entity.PropertyComment;
 import com.homeverse.property.entity.UserPropertyInteraction;
 import com.homeverse.property.repository.InteractionRepository;
 import com.homeverse.property.repository.OutboxRepository;
@@ -41,7 +44,7 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     private final StringRedisTemplate redisTemplate;
     private final InteractionRepository interactionRepository;
     private final PropertyCommentRepository commentRepository;
-
+    private final RecommendClient recommendClient;
     // ==========================================
     // 1. XEM DANH SÁCH (CÓ BỘ LỌC)
     // ==========================================
@@ -333,13 +336,20 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
                 .get("property:" + propertyId + ":views");
         String commentStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":comments");
-
+        String contactStr = redisTemplate.opsForValue()
+        .get("property:" + propertyId + ":contacts");
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
-                : commentRepository.countByPropertyId(propertyId);
+                : commentRepository.countByPropertyIdAndStatus(
+        propertyId,
+        PropertyComment.Status.ACTIVE
+);
 
         if (commentCount < 0) {
-            commentCount = commentRepository.countByPropertyId(propertyId);
+            commentCount = commentRepository.countByPropertyIdAndStatus(
+        propertyId,
+        PropertyComment.Status.ACTIVE
+);
 
             redisTemplate.opsForValue().set(
                     "property:" + propertyId + ":comments",
@@ -349,6 +359,11 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         dto.setSaveCount(saveCount);
         dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
         dto.setCommentCount(commentCount);
+        dto.setContactCount(
+        contactStr != null
+                ? Long.parseLong(contactStr)
+                : 0L
+);
         dto.setIsLiked(false);
         dto.setIsSaved(false);
         System.out.println("ADMIN MAPPER RUNNING ID = " + property.getId());
@@ -356,5 +371,40 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         System.out.println("ADMIN SAVE = " + dto.getSaveCount());
         System.out.println("ADMIN VIEW = " + dto.getViewCount());
         return dto;
+    }
+
+    public void contactProperty(
+            Long userId,
+            Long propertyId) {
+
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow();
+        redisTemplate.opsForValue()
+                .increment(
+                        "property:" + propertyId + ":contacts");
+
+        recommendClient.track(
+                TrackEventRequest.builder()
+                        .userId(userId)
+                        .itemId(propertyId)
+                        .itemType(
+                                property.getVideoUrl() != null
+                                        ? "reel"
+                                        : "property")
+                        .action("CONTACT")
+                        .watchTime(0.0)
+                        .duration(1.0)
+                        .price(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .userBudget(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .locationMatch(1)
+                        .categoryMatch(1)
+                        .district(property.getDistrict())
+                        .build());
     }
 }

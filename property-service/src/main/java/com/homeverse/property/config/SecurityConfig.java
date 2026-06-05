@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // ================== PUBLIC ==================
                         // Ai cũng xem được danh sách dự án & bất động sản
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/properties/**", "/projects/**","/amenities/**","/public/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/properties/**", "/projects/**","/amenities/**","/public/**","/owners/**").permitAll()
 
                         // ================== ADMIN ==================
                         // Tất cả request dưới /admin/** phải là ADMIN (URL level protection)

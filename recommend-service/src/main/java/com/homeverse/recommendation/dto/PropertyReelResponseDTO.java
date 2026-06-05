@@ -28,6 +28,7 @@ public class PropertyReelResponseDTO {
     private Boolean isSaved;
     private Long commentCount;
     private String ownerSlug;
+    private Long ownerId;
 
     private String ownerNameSnapshot;
 
