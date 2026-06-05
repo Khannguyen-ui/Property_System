@@ -70,6 +70,7 @@ public class ChatServiceImpl implements ChatService {
         Message message = Message.builder()
                 .conversationId(conversation.getId())
                 .senderId(currentUserId)
+                .receiverId(dto.getReceiverId())
                 .content(dto.getContent())
                 .type(dto.getType())
                 .isRead(false)

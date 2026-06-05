@@ -23,6 +23,9 @@ public class Message {
     @Field("sender_id")
     private Long senderId;
 
+    @Field("receiver_id")
+    private Long receiverId;
+
     private String content;
 
     private String type;
