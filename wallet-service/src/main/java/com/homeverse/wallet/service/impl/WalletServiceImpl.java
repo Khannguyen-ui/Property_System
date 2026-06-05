@@ -5,6 +5,8 @@ import com.homeverse.wallet.entity.WalletTransaction;
 import com.homeverse.wallet.repository.WalletRepository;
 import com.homeverse.wallet.repository.WalletTransactionRepository;
 import com.homeverse.wallet.service.WalletService;
+import com.homeverse.wallet.dto.NotificationEvent;
+import com.homeverse.wallet.kafka.WalletNotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,6 +23,8 @@ public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository transactionRepository;
+    private final WalletNotificationProducer notificationProducer;
+
 
     @Override
     @Transactional
@@ -145,5 +149,42 @@ public class WalletServiceImpl implements WalletService {
                 .build();
 
         transactionRepository.save(transaction);
+
+        notificationProducer.send(NotificationEvent.builder()
+                .receiverId(userId)
+                .title(buildNotificationTitle(type))
+                .content(buildNotificationContent(type, amount, wallet.getBalance(), description))
+                .type("WALLET_" + type)
+                .referenceId(referenceId)
+                .build());
+    }
+    private String buildNotificationTitle(String type) {
+        return switch (type) {
+            case "DEPOSIT" -> "Nạp tiền thành công";
+            case "DEBIT" -> "Trừ tiền ví thành công";
+            case "HOLD" -> "Đã giữ tiền trong ví";
+            case "RELEASE" -> "Đã hoàn tiền cọc";
+            case "PAYMENT_CONFIRMED" -> "Thanh toán đã xác nhận";
+            case "REFUND" -> "Hoàn tiền thành công";
+            default -> "Cập nhật giao dịch ví";
+        };
+    }
+
+    private String buildNotificationContent(String type, BigDecimal amount, BigDecimal balance, String description) {
+        BigDecimal displayAmount = amount.abs();
+
+        String action = switch (type) {
+            case "DEPOSIT" -> "Bạn vừa nạp";
+            case "DEBIT" -> "Ví của bạn vừa bị trừ";
+            case "HOLD" -> "Ví của bạn vừa bị giữ";
+            case "RELEASE" -> "Bạn vừa được hoàn";
+            case "PAYMENT_CONFIRMED" -> "Bạn vừa thanh toán";
+            case "REFUND" -> "Bạn vừa được hoàn tiền";
+            default -> "Ví của bạn vừa phát sinh giao dịch";
+        };
+
+        return action + " " + displayAmount.toPlainString()
+                + " VND. Số dư hiện tại: " + balance.toPlainString()
+                + " VND. " + (description == null ? "" : description);
     }
 }
