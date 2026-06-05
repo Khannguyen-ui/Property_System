@@ -25,21 +25,12 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public void handleTransaction(Long userId, BigDecimal amount, String type, String referenceId, String description) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    log.info("Tạo ví mới cho User: {}", userId);
-                    return walletRepository.save(Wallet.builder()
-                            .userId(userId)
-                            .balance(BigDecimal.ZERO)
-                            .holdBalance(BigDecimal.ZERO)
-                            .status("ACTIVE")
-                            .currency("VND")
-                            .build());
-                });
+        Wallet wallet = getOrCreateWallet(userId);
 
-        // Kiểm tra số dư khả dụng: (balance - holdBalance) + amount < 0 (khi amount âm)
         BigDecimal availableBalance = wallet.getBalance().subtract(wallet.getHoldBalance());
-        if (amount.compareTo(BigDecimal.ZERO) < 0 && availableBalance.add(amount).compareTo(BigDecimal.ZERO) < 0) {
+
+        if (amount.compareTo(BigDecimal.ZERO) < 0
+                && availableBalance.add(amount).compareTo(BigDecimal.ZERO) < 0) {
             throw new RuntimeException("Số dư không đủ để thực hiện giao dịch!");
         }
 
@@ -53,10 +44,10 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public void holdMoney(Long userId, BigDecimal amount, String referenceId) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ví!"));
+        Wallet wallet = getOrCreateWallet(userId);
 
         BigDecimal availableBalance = wallet.getBalance().subtract(wallet.getHoldBalance());
+
         if (availableBalance.compareTo(amount) < 0) {
             throw new RuntimeException("Số dư khả dụng không đủ để đặt cọc!");
         }
@@ -70,8 +61,11 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public void releaseMoney(Long userId, BigDecimal amount, String referenceId) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ví!"));
+        Wallet wallet = getOrCreateWallet(userId);
+
+        if (wallet.getHoldBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Số tiền đang giữ không đủ để hoàn cọc!");
+        }
 
         wallet.setHoldBalance(wallet.getHoldBalance().subtract(amount));
         walletRepository.save(wallet);
@@ -82,8 +76,11 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public void captureMoney(Long userId, BigDecimal amount, String referenceId) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ví!"));
+        Wallet wallet = getOrCreateWallet(userId);
+
+        if (wallet.getHoldBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Số tiền đang giữ không đủ để xác nhận thanh toán!");
+        }
 
         wallet.setBalance(wallet.getBalance().subtract(amount));
         wallet.setHoldBalance(wallet.getHoldBalance().subtract(amount));
@@ -95,8 +92,7 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public void debit(Long userId, BigDecimal amount) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy ví của user: " + userId));
+        Wallet wallet = getOrCreateWallet(userId);
 
         if (wallet.getBalance().compareTo(amount) < 0) {
             throw new RuntimeException("Số dư ví không đủ để thực hiện giao dịch!");
@@ -104,20 +100,35 @@ public class WalletServiceImpl implements WalletService {
 
         wallet.setBalance(wallet.getBalance().subtract(amount));
         walletRepository.save(wallet);
-        
+
         saveTransaction(wallet, userId, amount.negate(), "DEBIT", "PAYMENT_SERVICE", "Trừ tiền mua gói dịch vụ");
         log.info("Đã trừ {} từ ví user {}. Số dư còn lại: {}", amount, userId, wallet.getBalance());
     }
 
     @Override
+    @Transactional
     public Wallet getWalletByUserId(Long userId) {
-        return walletRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+        return getOrCreateWallet(userId);
     }
 
     @Override
     public Page<WalletTransaction> getTransactions(Long userId, int page, int size) {
         return transactionRepository.findByUserId(userId, PageRequest.of(page, size));
+    }
+
+    private Wallet getOrCreateWallet(Long userId) {
+        return walletRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    log.info("Tạo ví mới cho User: {}", userId);
+
+                    return walletRepository.save(Wallet.builder()
+                            .userId(userId)
+                            .balance(BigDecimal.ZERO)
+                            .holdBalance(BigDecimal.ZERO)
+                            .status("ACTIVE")
+                            .currency("VND")
+                            .build());
+                });
     }
 
     private void saveTransaction(Wallet wallet, Long userId, BigDecimal amount, String type, String referenceId, String description) {
@@ -130,6 +141,7 @@ public class WalletServiceImpl implements WalletService {
                 .description(description)
                 .status("COMPLETED")
                 .build();
+
         transactionRepository.save(transaction);
     }
 }
