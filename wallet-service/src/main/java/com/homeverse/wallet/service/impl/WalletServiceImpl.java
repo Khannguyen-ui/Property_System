@@ -112,7 +112,9 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    @Transactional
     public Page<WalletTransaction> getTransactions(Long userId, int page, int size) {
+        getOrCreateWallet(userId);
         return transactionRepository.findByUserId(userId, PageRequest.of(page, size));
     }
 
