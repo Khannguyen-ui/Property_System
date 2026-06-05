@@ -30,9 +30,25 @@
             registry.addEndpoint("/ws-chat")
                     .setAllowedOrigins("*") // Lưu ý: Chỉnh lại domain cụ thể khi lên Prod
                     .withSockJS(); // Hỗ trợ fallback cho các trình duyệt cũ
-            
-            // Thêm một endpoint không có SockJS nếu FE dùng thư viện Stomp thuần
-            registry.addEndpoint("/ws-chat").setAllowedOrigins("*");
+
+            registry.addEndpoint("/ws-chat")
+                    .setAllowedOrigins(
+                            "http://localhost:5173",
+                            "http://localhost:3000",
+                            "http://217.217.253.67",
+                            "http://homeverse-bds.duckdns.org",
+                            "https://homeverse-bds.duckdns.org"
+                    )
+                    .withSockJS();
+
+            registry.addEndpoint("/ws-chat")
+                    .setAllowedOrigins(
+                            "http://localhost:5173",
+                            "http://localhost:3000",
+                            "http://217.217.253.67",
+                            "http://homeverse-bds.duckdns.org",
+                            "https://homeverse-bds.duckdns.org"
+                    );
         }
         @Override
         public void configureClientInboundChannel(ChannelRegistration registration) {

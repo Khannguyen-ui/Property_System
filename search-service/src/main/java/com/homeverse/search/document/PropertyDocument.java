@@ -24,46 +24,87 @@ public class PropertyDocument {
     private Long projectId;
 
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword)}
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String title;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(
+            type = FieldType.Text,
+            analyzer = "vietnamese_folded",
+            searchAnalyzer = "vietnamese_folded"
+    )
     private String description;
 
-
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword)}
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String address;
+
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword),}
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String province;
 
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword)} // Để Filter và Vẽ biểu đồ
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String street;
 
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword)}
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String ward;
 
     @MultiField(
-            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
-            otherFields = {@InnerField(suffix = "keyword", type = FieldType.Keyword)}
+            mainField = @Field(
+                    type = FieldType.Text,
+                    analyzer = "vietnamese_folded",
+                    searchAnalyzer = "vietnamese_folded"
+            ),
+            otherFields = {
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword)
+            }
     )
     private String district;
 
     @Field(type = FieldType.Double)
     private BigDecimal price;
+
     @Field(type = FieldType.Double)
     private BigDecimal pricePerSqm;
 
@@ -90,6 +131,7 @@ public class PropertyDocument {
 
     @Field(type = FieldType.Keyword)
     private List<String> amenities;
+
     @Field(type = FieldType.Keyword)
     private String furnishingStatus;
 
@@ -105,18 +147,14 @@ public class PropertyDocument {
     @Field(type = FieldType.Keyword)
     private String internetPrice;
 
-
     @Field(type = FieldType.Keyword)
     private List<String> images;
-
 
     @Field(type = FieldType.Integer)
     private Integer capacity;
 
-
     @Field(type = FieldType.Keyword)
     private String status;
-
 
     @Field(type = FieldType.Long)
     private Long ownerId;

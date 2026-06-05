@@ -201,4 +201,16 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             Long ownerId,
             Property.Status status
     );
+    Page<Property> findByOwnerIdOrderByCreatedAtDesc(
+            Long ownerId,
+            Pageable pageable
+    );
+
+    Page<Property> findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
+            Long ownerId,
+            Property.TransactionType transactionType,
+            Pageable pageable
+    );
+
+
 }

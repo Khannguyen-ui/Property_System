@@ -48,7 +48,7 @@ public class    AuthServiceImpl implements AuthService {
     private final JavaMailSender mailSender;
     private final StringRedisTemplate redisTemplate;
 
-    @Value("${frontend.url:http://localhost:3000}")
+    @Value("${frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
 

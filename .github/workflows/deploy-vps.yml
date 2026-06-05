@@ -48,11 +48,55 @@ jobs:
             echo "=== Build production Docker images ==="
             docker compose --env-file .env.prod -f docker-compose.prod.yml build
 
+            echo "=== Stop old stack safely ==="
+            docker compose --env-file .env.prod -f docker-compose.prod.yml down --remove-orphans
+
             echo "=== Start production stack ==="
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "=== Show containers ==="
             docker ps -a
+
+            echo "=== Wait for Spring services to become ready ==="
+            for i in $(seq 1 45); do
+              echo "Health check attempt $i/45..."
+
+              FRONT_OK=0
+              SEARCH_OK=0
+              OAUTH_OK=0
+
+              if curl -fsS -I --max-time 10 https://homeverse-bds.duckdns.org >/dev/null; then
+                FRONT_OK=1
+              fi
+
+              if curl -fsS -I --max-time 10 https://homeverse-bds.duckdns.org/search/properties >/dev/null; then
+                SEARCH_OK=1
+              fi
+
+              if curl -fsS -I --max-time 10 https://homeverse-bds.duckdns.org/oauth2/authorization/google -o /tmp/oauth_headers.txt; then
+                if grep -qi "Location: https://accounts.google.com" /tmp/oauth_headers.txt; then
+                  OAUTH_OK=1
+                fi
+              fi
+
+              echo "front=$FRONT_OK search=$SEARCH_OK oauth=$OAUTH_OK"
+
+              if [ "$FRONT_OK" = "1" ] && [ "$SEARCH_OK" = "1" ] && [ "$OAUTH_OK" = "1" ]; then
+                echo "All public routes are ready"
+                break
+              fi
+
+              if [ "$i" = "45" ]; then
+                echo "Services are not ready after waiting. Show diagnostics:"
+                docker ps -a
+                docker logs --tail=150 identity-service || true
+                docker logs --tail=150 search-service || true
+                docker logs --tail=150 nginx-proxy || true
+                exit 1
+              fi
+
+              sleep 10
+            done
 
             echo "=== Cleanup Docker build cache ==="
             docker builder prune -f

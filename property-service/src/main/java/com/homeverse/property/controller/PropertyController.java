@@ -79,6 +79,19 @@ public class PropertyController {
         propertyService.hardDeleteProperty(ownerId, id);
         return ResponseEntity.ok("Đã xóa vĩnh viễn bài đăng khỏi hệ thống!");
     }
+    @GetMapping
+    public ResponseEntity<Page<PropertyResponseDTO>> getMyProperties(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String transactionType
+    ) {
+        Long ownerId = extractUserId(authentication);
+        return ResponseEntity.ok(
+                propertyService.getMyProperties(ownerId, page, size, status, transactionType)
+        );
+    }
 
     // ================== Helper method ==================
     private Long extractUserId(Authentication authentication) {
