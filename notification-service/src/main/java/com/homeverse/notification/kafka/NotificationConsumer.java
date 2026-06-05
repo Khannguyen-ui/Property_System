@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import java.time.ZoneId;
 
 import java.time.LocalDateTime;
 
@@ -79,7 +80,7 @@ public void consumeChatNotification(String message) {
                 .title(title)
                 .content(content)
                 .isRead(false)
-                .createdAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")))
                 .build();
 
         Notification savedNotif = notificationRepository.save(notif);
@@ -88,7 +89,7 @@ public void consumeChatNotification(String message) {
             messagingTemplate.convertAndSendToUser(userId, "/queue/notifications", savedNotif);
             log.info("Gửi realtime WebSocket cho user {}", userId);
         } else {
-            log.info(" User {} offline → chỉ lưu DB", userId);
+            log.info("User {} offline → chỉ lưu DB", userId);
         }
     }
 
