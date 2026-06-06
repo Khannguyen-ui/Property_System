@@ -23,7 +23,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/customers/init", "/error").permitAll() // API gọi nội bộ từ Identity-Service
+                        .requestMatchers("/customers/init", "/error","/customers/*/summary").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
