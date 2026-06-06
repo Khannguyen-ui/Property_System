@@ -74,15 +74,28 @@ jobs:
             register_connector_if_missing() {
               local name="$1"
               local file="$2"
-
-              if curl -fsS "http://localhost:8083/connectors/$name/status" >/dev/null; then
-                echo "Connector $name already exists"
-              else
-                echo "Registering connector $name from $file"
-                curl -fsS -X POST http://localhost:8083/connectors \
-                  -H "Content-Type: application/json" \
-                  --data @"$file"
+            
+              local http_code
+              http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8083/connectors/$name/status" || true)
+            
+              if [ "$http_code" = "200" ]; then
+              echo "Connector $name already exists"
+              return 0
               fi
+            
+              if [ "$http_code" = "404" ]; then
+              echo "Registering connector $name from $file"
+              curl -sS -X POST http://localhost:8083/connectors \
+              -H "Content-Type: application/json" \
+              --data @"$file"
+              
+              echo
+              return 0
+              fi
+            
+              echo "Unexpected status while checking connector $name: HTTP $http_code"
+              curl -s "http://localhost:8083/connectors/$name/status" || true
+              exit 1
             }
 
             register_connector_if_missing "customer-db-connector" "kafka/connects/customer-db-connector.json"
