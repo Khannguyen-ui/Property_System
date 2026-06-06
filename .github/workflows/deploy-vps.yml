@@ -50,11 +50,50 @@ jobs:
             echo "=== Build production Docker images ==="
             docker compose --env-file .env.prod -f docker-compose.prod.yml build
 
-            echo "=== Stop old stack safely ==="
-            docker compose --env-file .env.prod -f docker-compose.prod.yml down --remove-orphans
-
-            echo "=== Start production stack ==="
+            echo "=== Start / update production stack without deleting Kafka state ==="
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "=== Wait for Debezium Connect ==="
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8083/connectors >/dev/null; then
+                echo "Debezium Connect is ready"
+                break
+              fi
+
+              if [ "$i" = "30" ]; then
+                echo "Debezium Connect is not ready"
+                docker logs --tail=150 debezium-connect || true
+                exit 1
+              fi
+
+              sleep 5
+            done
+
+            echo "=== Register Debezium connectors if missing ==="
+
+            register_connector_if_missing() {
+              local name="$1"
+              local file="$2"
+
+              if curl -fsS "http://localhost:8083/connectors/$name/status" >/dev/null; then
+                echo "Connector $name already exists"
+              else
+                echo "Registering connector $name from $file"
+                curl -fsS -X POST http://localhost:8083/connectors \
+                  -H "Content-Type: application/json" \
+                  --data @"$file"
+              fi
+            }
+
+            register_connector_if_missing "customer-db-connector" "kafka/connects/customer-db-connector.json"
+            register_connector_if_missing "identity-db-connector" "kafka/connects/debezium-identity.json"
+            register_connector_if_missing "property-connector" "kafka/connects/debezium-property-connector.json"
+
+            echo "=== Debezium connector status ==="
+            curl -s http://localhost:8083/connectors | python3 -m json.tool
+            curl -s http://localhost:8083/connectors/customer-db-connector/status | python3 -m json.tool || true
+            curl -s http://localhost:8083/connectors/identity-db-connector/status | python3 -m json.tool || true
+            curl -s http://localhost:8083/connectors/property-connector/status | python3 -m json.tool || true
 
             echo "=== Show containers ==="
             docker ps -a
