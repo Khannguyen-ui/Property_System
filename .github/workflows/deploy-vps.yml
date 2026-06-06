@@ -170,6 +170,11 @@ jobs:
             wait_for_started_log customer-service "Started CustomerServiceApplication" 90
             wait_for_started_log property-service "Started PropertyServiceApplication" 90
             wait_for_started_log search-service "Started SearchServiceApplication" 90
+            echo "=== Restart nginx to refresh upstream container IPs ==="
+            docker restart nginx-proxy
+            
+            echo "=== Wait for nginx after restart ==="
+            sleep 10
 
             echo "=== Wait for public routes to become ready ==="
             for i in $(seq 1 60); do
