@@ -34,6 +34,9 @@ jobs:
             echo "=== Check required production files ==="
             test -f docker-compose.prod.yml
             test -f .env.prod
+            test -f kafka/connects/customer-db-connector.json
+            test -f kafka/connects/debezium-identity.json
+            test -f kafka/connects/debezium-property-connector.json
 
             echo "=== Check Docker ==="
             docker --version
@@ -54,18 +57,20 @@ jobs:
             docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
             echo "=== Wait for Debezium Connect ==="
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               if curl -fsS http://localhost:8083/connectors >/dev/null; then
                 echo "Debezium Connect is ready"
                 break
               fi
 
-              if [ "$i" = "30" ]; then
+              if [ "$i" = "60" ]; then
                 echo "Debezium Connect is not ready"
-                docker logs --tail=150 debezium-connect || true
+                docker ps -a
+                docker logs --tail=200 debezium-connect || true
                 exit 1
               fi
 
+              echo "Waiting for Debezium Connect... attempt $i/60"
               sleep 5
             done
 
@@ -74,25 +79,35 @@ jobs:
             register_connector_if_missing() {
               local name="$1"
               local file="$2"
-            
+
               local http_code
               http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8083/connectors/$name/status" || true)
-            
+
               if [ "$http_code" = "200" ]; then
-              echo "Connector $name already exists"
-              return 0
+                echo "Connector $name already exists"
+                return 0
               fi
-            
+
               if [ "$http_code" = "404" ]; then
-              echo "Registering connector $name from $file"
-              curl -sS -X POST http://localhost:8083/connectors \
-              -H "Content-Type: application/json" \
-              --data @"$file"
-              
-              echo
-              return 0
+                echo "Registering connector $name from $file"
+
+                local post_code
+                post_code=$(curl -sS -o /tmp/connector_response.json -w "%{http_code}" \
+                  -X POST http://localhost:8083/connectors \
+                  -H "Content-Type: application/json" \
+                  --data @"$file" || true)
+
+                cat /tmp/connector_response.json
+                echo
+
+                if [ "$post_code" != "200" ] && [ "$post_code" != "201" ]; then
+                  echo "Failed to register connector $name. HTTP $post_code"
+                  exit 1
+                fi
+
+                return 0
               fi
-            
+
               echo "Unexpected status while checking connector $name: HTTP $http_code"
               curl -s "http://localhost:8083/connectors/$name/status" || true
               exit 1
@@ -102,17 +117,59 @@ jobs:
             register_connector_if_missing "identity-db-connector" "kafka/connects/debezium-identity.json"
             register_connector_if_missing "property-connector" "kafka/connects/debezium-property-connector.json"
 
-            echo "=== Debezium connector status ==="
+            echo "=== Wait for Debezium connector tasks ==="
+            sleep 10
+
+            verify_connector_running() {
+              local name="$1"
+
+              local status_json
+              status_json=$(curl -s "http://localhost:8083/connectors/$name/status")
+
+              echo "$status_json" | python3 -m json.tool || true
+
+              if echo "$status_json" | grep -q '"state"[[:space:]]*:[[:space:]]*"FAILED"'; then
+                echo "Connector $name has FAILED state/task"
+                exit 1
+              fi
+            }
+
+            verify_connector_running "customer-db-connector"
+            verify_connector_running "identity-db-connector"
+            verify_connector_running "property-connector"
+
+            echo "=== Debezium connector list ==="
             curl -s http://localhost:8083/connectors | python3 -m json.tool
-            curl -s http://localhost:8083/connectors/customer-db-connector/status | python3 -m json.tool || true
-            curl -s http://localhost:8083/connectors/identity-db-connector/status | python3 -m json.tool || true
-            curl -s http://localhost:8083/connectors/property-connector/status | python3 -m json.tool || true
 
             echo "=== Show containers ==="
             docker ps -a
 
-            echo "=== Initial wait for Spring services boot ==="
-            sleep 90
+            echo "=== Wait for Spring Boot applications ==="
+
+            wait_for_started_log() {
+              local container="$1"
+              local pattern="$2"
+              local max_attempts="${3:-90}"
+
+              for i in $(seq 1 "$max_attempts"); do
+                if docker logs "$container" 2>&1 | grep -q "$pattern"; then
+                  echo "$container is ready"
+                  return 0
+                fi
+
+                echo "Waiting for $container... attempt $i/$max_attempts"
+                sleep 10
+              done
+
+              echo "$container did not become ready. Last logs:"
+              docker logs --tail=200 "$container" || true
+              exit 1
+            }
+
+            wait_for_started_log identity-service "Started IdentityServiceApplication" 90
+            wait_for_started_log customer-service "Started CustomerServiceApplication" 90
+            wait_for_started_log property-service "Started PropertyServiceApplication" 90
+            wait_for_started_log search-service "Started SearchServiceApplication" 90
 
             echo "=== Wait for public routes to become ready ==="
             for i in $(seq 1 60); do
@@ -120,7 +177,6 @@ jobs:
 
               FRONT_OK=0
               OAUTH_OK=0
-              CUSTOMER_OK=0
 
               if curl -fsS -I --max-time 15 https://homeverse-bds.duckdns.org >/dev/null; then
                 FRONT_OK=1
@@ -132,13 +188,9 @@ jobs:
                 fi
               fi
 
-              if curl -fsS --max-time 15 https://homeverse-bds.duckdns.org/customers/7/summary >/dev/null; then
-                CUSTOMER_OK=1
-              fi
+              echo "front=$FRONT_OK oauth=$OAUTH_OK"
 
-              echo "front=$FRONT_OK oauth=$OAUTH_OK customer=$CUSTOMER_OK"
-
-              if [ "$FRONT_OK" = "1" ] && [ "$OAUTH_OK" = "1" ] && [ "$CUSTOMER_OK" = "1" ]; then
+              if [ "$FRONT_OK" = "1" ] && [ "$OAUTH_OK" = "1" ]; then
                 echo "Public routes are ready"
                 break
               fi
@@ -148,6 +200,7 @@ jobs:
                 docker ps -a
                 docker logs --tail=150 identity-service || true
                 docker logs --tail=150 customer-service || true
+                docker logs --tail=150 property-service || true
                 docker logs --tail=150 search-service || true
                 docker logs --tail=150 nginx-proxy || true
                 exit 1
@@ -158,3 +211,5 @@ jobs:
 
             echo "=== Cleanup Docker build cache ==="
             docker builder prune -f
+
+            echo "=== Deploy completed successfully ==="
