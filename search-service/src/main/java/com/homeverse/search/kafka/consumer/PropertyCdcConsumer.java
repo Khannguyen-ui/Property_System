@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Base64;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -104,33 +108,23 @@ public class PropertyCdcConsumer {
                 doc.setInternetPrice(after.path("internet_price").asText(null));
 
                 // --- TỌA ĐỘ GEOJSON ---
-                if (after.hasNonNull("location")) {
-                    JsonNode locationNode = after.path("location");
-                    try {
-                        // Trường hợp 1: Debezium gửi luôn Object
-                        if (locationNode.isObject() && locationNode.hasNonNull("coordinates")) {
-                            JsonNode coords = locationNode.get("coordinates");
-                            if (coords.isArray() && coords.size() >= 2) {
-                                double lon = coords.get(0).asDouble();
-                                double lat = coords.get(1).asDouble();
-                                doc.setLocation(new GeoPoint(lat, lon));
-                            }
-                        }
-                        // Trường hợp 2: Debezium gửi chuỗi String
-                        else if (locationNode.isTextual() && !locationNode.asText().trim().isEmpty()) {
-                            JsonNode geoJsonNode = objectMapper.readTree(locationNode.asText());
-                            if (geoJsonNode.hasNonNull("coordinates")) {
-                                JsonNode coords = geoJsonNode.get("coordinates");
-                                if (coords.isArray() && coords.size() >= 2) {
-                                    double lon = coords.get(0).asDouble();
-                                    double lat = coords.get(1).asDouble();
-                                    doc.setLocation(new GeoPoint(lat, lon));
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.warn("Lỗi parse tọa độ GeoJSON (bỏ qua tọa độ cho Property ID {}): {}", propertyId, e.getMessage());
-                    }
+                // --- TỌA ĐỘ GEO / POSTGIS WKB ---
+                GeoPoint geoPoint = parseGeoPoint(after.path("location"));
+
+                if (geoPoint != null) {
+                    doc.setLocation(geoPoint);
+                    log.info(
+                            "CDC: Parsed location for Property ID {} => lat={}, lon={}",
+                            propertyId,
+                            geoPoint.getLat(),
+                            geoPoint.getLon()
+                    );
+                } else {
+                    log.warn(
+                            "CDC: Property ID {} không có location hợp lệ. raw={}",
+                            propertyId,
+                            after.path("location")
+                    );
                 }
 
                 if (after.hasNonNull("amenities")) {
@@ -152,6 +146,104 @@ public class PropertyCdcConsumer {
 
         } catch (Exception e) {
             log.error(" Lỗi đồng bộ CDC lên Elasticsearch: {}", e.getMessage(), e);
+        }
+    }
+    private GeoPoint parseGeoPoint(JsonNode locationNode) {
+        if (locationNode == null || locationNode.isNull() || locationNode.isMissingNode()) {
+            return null;
+        }
+
+        try {
+            // Case 1: GeoJSON: {"type":"Point","coordinates":[lon,lat]}
+            if (locationNode.isObject() && locationNode.hasNonNull("coordinates")) {
+                JsonNode coords = locationNode.get("coordinates");
+                if (coords.isArray() && coords.size() >= 2) {
+                    double lon = coords.get(0).asDouble();
+                    double lat = coords.get(1).asDouble();
+                    return new GeoPoint(lat, lon);
+                }
+            }
+
+            // Case 2: Debezium PostGIS WKB base64: {"wkb":"...","srid":4326}
+            if (locationNode.isObject() && locationNode.hasNonNull("wkb")) {
+                return parseWkbBase64Point(locationNode.get("wkb").asText());
+            }
+
+            // Case 3: String GeoJSON
+            if (locationNode.isTextual()) {
+                String raw = locationNode.asText().trim();
+                if (raw.isEmpty()) {
+                    return null;
+                }
+
+                if (raw.startsWith("{")) {
+                    JsonNode geoJsonNode = objectMapper.readTree(raw);
+                    return parseGeoPoint(geoJsonNode);
+                }
+
+                // Case 4: WKT: POINT (106.101 10.390)
+                if (raw.toUpperCase().startsWith("POINT")) {
+                    java.util.regex.Matcher matcher = java.util.regex.Pattern
+                            .compile(
+                                    "POINT\\s*\\(?\\s*([0-9.\\-]+)\\s+([0-9.\\-]+)\\s*\\)?",
+                                    java.util.regex.Pattern.CASE_INSENSITIVE
+                            )
+                            .matcher(raw);
+
+                    if (matcher.find()) {
+                        double lon = Double.parseDouble(matcher.group(1));
+                        double lat = Double.parseDouble(matcher.group(2));
+                        return new GeoPoint(lat, lon);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không parse được location: {}", locationNode, e);
+        }
+
+        return null;
+    }
+
+    private GeoPoint parseWkbBase64Point(String base64Wkb) {
+        if (base64Wkb == null || base64Wkb.isBlank()) {
+            return null;
+        }
+
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64Wkb);
+
+            if (bytes.length < 21) {
+                log.warn("WKB quá ngắn, không thể parse Point. length={}", bytes.length);
+                return null;
+            }
+
+            ByteOrder byteOrder = bytes[0] == 1 ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+            ByteBuffer buffer = ByteBuffer.wrap(bytes).order(byteOrder);
+
+            buffer.get(); // endian byte
+
+            int type = buffer.getInt();
+
+            // EWKB có SRID flag 0x20000000
+            boolean hasSrid = (type & 0x20000000) != 0;
+
+            int geometryType = type & 0x000000FF;
+            if (geometryType != 1) {
+                log.warn("WKB không phải Point. type={}, geometryType={}", type, geometryType);
+                return null;
+            }
+
+            if (hasSrid) {
+                buffer.getInt(); // skip SRID
+            }
+
+            double lon = buffer.getDouble();
+            double lat = buffer.getDouble();
+
+            return new GeoPoint(lat, lon);
+        } catch (Exception e) {
+            log.warn("Không parse được WKB location: {}", base64Wkb, e);
+            return null;
         }
     }
 }
