@@ -1,14 +1,14 @@
 package com.homeverse.payment.service.impl;
 
 import com.homeverse.common.dto.PaymentEvent;
+import com.homeverse.payment.client.WalletClient;
+import com.homeverse.payment.entity.PackageType;
 import com.homeverse.payment.entity.ServicePackage;
 import com.homeverse.payment.entity.Transaction;
+import com.homeverse.payment.kafka.PaymentProducer;
 import com.homeverse.payment.repository.ServicePackageRepository;
 import com.homeverse.payment.repository.TransactionRepository;
 import com.homeverse.payment.service.ServicePackageService;
-import com.homeverse.payment.kafka.PaymentProducer;
-import com.homeverse.payment.client.WalletClient;
-import com.homeverse.payment.entity.PackageType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,20 +32,23 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public void buyMembership(Long userId, Long packageId) {
         try {
             log.info("Đang xử lý Membership cho User {} - Package {}", userId, packageId);
+
             ServicePackage pkg = packageRepository.findById(packageId)
                     .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại"));
+
+            validateMembershipPackage(pkg);
 
             walletClient.debit(userId, pkg.getPrice());
 
             Transaction trans = Transaction.builder()
                     .userId(userId)
                     .amount(pkg.getPrice())
-                    .type(pkg.getType().toString())
-                    .description("Mua gói: " + pkg.getName())
+                    .type(PackageType.MEMBERSHIP.toString())
+                    .description("Mua gói đăng bài/hội viên: " + pkg.getName())
                     .status("SUCCESS")
                     .createdAt(LocalDateTime.now())
                     .build();
-            
+
             Transaction savedTrans = transactionRepository.save(trans);
 
             PaymentEvent event = PaymentEvent.builder()
@@ -54,15 +57,16 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                     .packageId(packageId)
                     .packageName(pkg.getName())
                     .transactionId(savedTrans.getId().toString())
-                    .type(pkg.getType().toString())
-                    .durationDays(pkg.getDurationDays())
-                    .priorityLevel(pkg.getPriorityLevel() != null ? pkg.getPriorityLevel() : 0)
-                    .quotaLimit(pkg.getQuotaLimit() != null ? pkg.getQuotaLimit() : 0)
+                    .type(PackageType.MEMBERSHIP.toString())
+                    .durationDays(pkg.getDurationDays() != null ? pkg.getDurationDays() : 0)
+                    .priorityLevel(0)
+                    .quotaLimit(pkg.getQuotaLimit())
                     .build();
 
             paymentProducer.sendPaymentSuccess(event);
+
         } catch (Exception e) {
-            log.error("LỖI CHI TIẾT TẠI ĐÂY NÈ : ", e);
+            log.error("Lỗi khi mua gói đăng bài/hội viên. userId={}, packageId={}", userId, packageId, e);
             throw e;
         }
     }
@@ -70,35 +74,56 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Override
     @Transactional
     public void buyPromotion(Long userId, Long packageId, Long propertyId) {
-        ServicePackage pkg = packageRepository.findById(packageId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói cước!"));
+        try {
+            log.info("Đang xử lý đẩy tin cho User {} - Package {} - Property {}", userId, packageId, propertyId);
 
-        walletClient.debit(userId, pkg.getPrice());
+            ServicePackage pkg = packageRepository.findById(packageId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy gói cước"));
 
-        Transaction transaction = Transaction.builder()
-                .userId(userId)
-                .amount(pkg.getPrice())
-                .type(PackageType.ROOM_PROMOTION.toString())
-                .status("SUCCESS")
-                .description("Mua gói đẩy tin cho bài đăng ID: " + propertyId)
-                .createdAt(LocalDateTime.now())
-                .build();
-        
-        Transaction savedTrans = transactionRepository.save(transaction);
+            validatePromotionPackage(pkg);
 
-        PaymentEvent event = PaymentEvent.builder()
-                .userId(userId)
-                .roomId(propertyId)
-                .amount(pkg.getPrice())
-                .packageId(packageId)
-                .packageName(pkg.getName())
-                .type(PackageType.ROOM_PROMOTION.toString())
-                .durationDays(pkg.getDurationDays())
-                .transactionId(savedTrans.getId().toString())
-                .priorityLevel(pkg.getPriorityLevel() != null ? pkg.getPriorityLevel() : 0)
-                .build();
+            if (propertyId == null) {
+                throw new RuntimeException("Thiếu ID bài đăng cần đẩy tin");
+            }
 
-        paymentProducer.sendPaymentSuccess(event);
+            walletClient.debit(userId, pkg.getPrice());
+
+            Transaction transaction = Transaction.builder()
+                    .userId(userId)
+                    .amount(pkg.getPrice())
+                    .type(PackageType.ROOM_PROMOTION.toString())
+                    .status("SUCCESS")
+                    .description("Mua gói đẩy tin cho bài đăng ID: " + propertyId)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            Transaction savedTrans = transactionRepository.save(transaction);
+
+            PaymentEvent event = PaymentEvent.builder()
+                    .userId(userId)
+                    .roomId(propertyId)
+                    .amount(pkg.getPrice())
+                    .packageId(packageId)
+                    .packageName(pkg.getName())
+                    .type(PackageType.ROOM_PROMOTION.toString())
+                    .durationDays(pkg.getDurationDays())
+                    .transactionId(savedTrans.getId().toString())
+                    .priorityLevel(pkg.getPriorityLevel())
+                    .quotaLimit(0)
+                    .build();
+
+            paymentProducer.sendPaymentSuccess(event);
+
+        } catch (Exception e) {
+            log.error(
+                    "Lỗi khi mua gói đẩy tin. userId={}, packageId={}, propertyId={}",
+                    userId,
+                    packageId,
+                    propertyId,
+                    e
+            );
+            throw e;
+        }
     }
 
     @Override
@@ -112,7 +137,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public List<ServicePackage> getAllActivePackages() {
         return packageRepository.findAll()
                 .stream()
-                .filter(ServicePackage::getActive)
+                .filter(pkg -> Boolean.TRUE.equals(pkg.getActive()))
                 .toList();
     }
 
@@ -120,7 +145,10 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Transactional
     public ServicePackage createPackage(ServicePackage pkg) {
         log.info("Admin đang tạo gói cước mới: {}", pkg.getName());
-        if (pkg.getActive() == null) pkg.setActive(true);
+
+        normalizePackage(pkg);
+        validatePackageForSave(pkg);
+
         return packageRepository.save(pkg);
     }
 
@@ -131,7 +159,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói cước ID: " + id));
 
         log.info("Admin đang cập nhật gói cước ID: {}", id);
-        
+
         existingPkg.setName(pkg.getName());
         existingPkg.setPrice(pkg.getPrice());
         existingPkg.setDurationDays(pkg.getDurationDays());
@@ -141,6 +169,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         existingPkg.setType(pkg.getType());
         existingPkg.setDescription(pkg.getDescription());
         existingPkg.setActive(pkg.getActive());
+
+        normalizePackage(existingPkg);
+        validatePackageForSave(existingPkg);
 
         return packageRepository.save(existingPkg);
     }
@@ -154,5 +185,98 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         log.warn("Admin thực hiện ẩn gói cước ID: {}", id);
         pkg.setActive(false);
         packageRepository.save(pkg);
+    }
+
+    private void validateMembershipPackage(ServicePackage pkg) {
+        validateBasicPackage(pkg);
+
+        if (pkg.getType() != PackageType.MEMBERSHIP) {
+            throw new RuntimeException("Gói này không phải gói đăng bài/hội viên");
+        }
+
+        if (pkg.getQuotaLimit() == null || pkg.getQuotaLimit() <= 0) {
+            throw new RuntimeException("Gói đăng bài chưa cấu hình số lượt đăng");
+        }
+    }
+
+    private void validatePromotionPackage(ServicePackage pkg) {
+        validateBasicPackage(pkg);
+
+        if (pkg.getType() != PackageType.ROOM_PROMOTION) {
+            throw new RuntimeException("Gói này không phải gói đẩy tin");
+        }
+
+        if (pkg.getDurationDays() == null || pkg.getDurationDays() <= 0) {
+            throw new RuntimeException("Gói đẩy tin chưa cấu hình thời hạn");
+        }
+
+        if (pkg.getPriorityLevel() == null || pkg.getPriorityLevel() <= 0) {
+            throw new RuntimeException("Gói đẩy tin chưa cấu hình cấp độ ưu tiên");
+        }
+    }
+
+    private void validateBasicPackage(ServicePackage pkg) {
+        if (pkg.getType() == null) {
+            throw new RuntimeException("Gói dịch vụ chưa cấu hình loại gói");
+        }
+
+        if (!Boolean.TRUE.equals(pkg.getActive())) {
+            throw new RuntimeException("Gói dịch vụ đã ngừng hoạt động");
+        }
+
+        if (pkg.getPrice() == null || pkg.getPrice().signum() <= 0) {
+            throw new RuntimeException("Gói dịch vụ chưa cấu hình giá hợp lệ");
+        }
+    }
+
+    private void validatePackageForSave(ServicePackage pkg) {
+        if (pkg.getName() == null || pkg.getName().isBlank()) {
+            throw new RuntimeException("Tên gói không được để trống");
+        }
+
+        if (pkg.getType() == null) {
+            throw new RuntimeException("Loại gói không được để trống");
+        }
+
+        if (pkg.getPrice() == null || pkg.getPrice().signum() <= 0) {
+            throw new RuntimeException("Giá gói phải lớn hơn 0");
+        }
+
+        if (pkg.getType() == PackageType.MEMBERSHIP) {
+            if (pkg.getQuotaLimit() == null || pkg.getQuotaLimit() <= 0) {
+                throw new RuntimeException("Gói đăng bài phải có số lượt đăng lớn hơn 0");
+            }
+        }
+
+        if (pkg.getType() == PackageType.ROOM_PROMOTION) {
+            if (pkg.getDurationDays() == null || pkg.getDurationDays() <= 0) {
+                throw new RuntimeException("Gói đẩy tin phải có thời hạn lớn hơn 0 ngày");
+            }
+
+            if (pkg.getPriorityLevel() == null || pkg.getPriorityLevel() <= 0) {
+                throw new RuntimeException("Gói đẩy tin phải có cấp ưu tiên lớn hơn 0");
+            }
+        }
+    }
+
+    private void normalizePackage(ServicePackage pkg) {
+        if (pkg.getActive() == null) {
+            pkg.setActive(true);
+        }
+
+        if (pkg.getDiscountPercent() == null) {
+            pkg.setDiscountPercent(0.0);
+        }
+
+        if (pkg.getType() == PackageType.MEMBERSHIP) {
+            pkg.setPriorityLevel(0);
+            if (pkg.getDurationDays() == null) {
+                pkg.setDurationDays(0);
+            }
+        }
+
+        if (pkg.getType() == PackageType.ROOM_PROMOTION) {
+            pkg.setQuotaLimit(0);
+        }
     }
 }

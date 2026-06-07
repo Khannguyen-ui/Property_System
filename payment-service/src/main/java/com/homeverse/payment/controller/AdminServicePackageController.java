@@ -17,35 +17,38 @@ public class AdminServicePackageController {
 
     private final ServicePackageService servicePackageService;
 
-    // 🟢 MỞ QUYỀN: Cho phép cả Admin và Landlord xem danh sách để chọn mua
+    // Chỉ Admin xem toàn bộ gói, gồm cả inactive
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'LANDLORD')")
-    public ResponseEntity<List<ServicePackage>> getAllPackages() {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ServicePackage>> getAllPackagesForAdmin() {
         return ResponseEntity.ok(servicePackageService.getAllPackagesForAdmin());
     }
 
-    // 🔴 KHÓA CHẶT: Chỉ Admin mới được tạo gói mới
+
+    @GetMapping("/active")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER',)")
+    public ResponseEntity<List<ServicePackage>> getAllActivePackages() {
+        return ResponseEntity.ok(servicePackageService.getAllActivePackages());
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ServicePackage> createPackage(@RequestBody ServicePackage pkg) {
         return ResponseEntity.ok(servicePackageService.createPackage(pkg));
     }
 
-    // 🔴 KHÓA CHẶT: Chỉ Admin mới được sửa giá/thông tin gói
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ServicePackage> updatePackage(
-            @PathVariable Long id, 
+            @PathVariable Long id,
             @RequestBody ServicePackage pkg) {
         return ResponseEntity.ok(servicePackageService.updatePackage(id, pkg));
     }
 
-    // 🔴 KHÓA CHẶT: Chỉ Admin mới được xóa gói
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletePackage(@PathVariable Long id) {
         servicePackageService.deletePackage(id);
-        return ResponseEntity.ok(Map.of("message", "Đã xóa gói cước thành công!"));
+        return ResponseEntity.ok(Map.of("message", "Đã ẩn gói cước thành công!"));
     }
-    
 }
