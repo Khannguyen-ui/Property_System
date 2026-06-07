@@ -83,19 +83,34 @@ public class PropertySearchServiceImpl implements PropertySearchService {
             String remainingKeyword = applyKeywordIntentFilters(b, keyword, req);
 
             if (!remainingKeyword.isBlank()) {
-                b.must(m -> m.multiMatch(mm -> mm
-                        .fields(
-                                "title^4",
-                                "description^2",
-                                "address^2",
-                                "province",
-                                "district^2",
-                                "ward",
-                                "street"
-                        )
-                        .query(remainingKeyword)
-                        .operator(Operator.Or)
-                        .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.CrossFields)
+                String normalizedKeyword = remainingKeyword.trim();
+                String rawKeyword = req.getKeyword().trim();
+
+                b.must(m -> m.bool(keywordBool -> keywordBool
+                        .should(s -> s.matchPhrase(mp -> mp
+                                .field("title")
+                                .query(rawKeyword)
+                                .boost(10.0f)
+                        ))
+                        .should(s -> s.matchPhrase(mp -> mp
+                                .field("address")
+                                .query(rawKeyword)
+                                .boost(5.0f)
+                        ))
+                        .should(s -> s.multiMatch(mm -> mm
+                                .fields(
+                                        "title^8",
+                                        "description^3",
+                                        "address^3",
+                                        "street^2",
+                                        "ward^2",
+                                        "province"
+                                )
+                                .query(normalizedKeyword)
+                                .operator(Operator.And)
+                                .type(co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType.CrossFields)
+                        ))
+                        .minimumShouldMatch("1")
                 ));
             }
         }
