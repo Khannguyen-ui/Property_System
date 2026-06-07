@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 
 @FeignClient(name = "property-client", url = "${homeverse.services.property}")
 public interface PropertyClient {
+    @GetMapping("/public/properties/all")
+    List<PropertyResponseDTO> getAllActiveProperties();
 
     @GetMapping("/public/properties/{id}")
     PropertyResponseDTO getPropertyById(@PathVariable Long id);

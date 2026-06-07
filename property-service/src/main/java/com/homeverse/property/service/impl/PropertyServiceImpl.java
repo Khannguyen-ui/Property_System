@@ -1000,4 +1000,12 @@ public class PropertyServiceImpl implements PropertyService {
                 )
                 .map(this::mapToResponse);
     }
+    @Override
+@Transactional(readOnly = true)
+public List<PropertyResponseDTO> getAllActiveProperties() {
+    return propertyRepository.findByStatus(Property.Status.ACTIVE)
+            .stream()
+            .map(this::mapToResponse)
+            .toList();
+}
 }

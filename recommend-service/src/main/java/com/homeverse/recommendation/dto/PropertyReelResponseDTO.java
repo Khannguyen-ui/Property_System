@@ -29,7 +29,7 @@ public class PropertyReelResponseDTO {
     private Long commentCount;
     private String ownerSlug;
     private Long ownerId;
-
+    private Long contactCount;
     private String ownerNameSnapshot;
 
     private String ownerAvatarSnapshot;

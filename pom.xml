@@ -26,7 +26,6 @@
         <module>payment-service</module>
         <module>wallet-service</module>
         <module>chat-service</module>
-
         <module>search-service</module>
         <module>ai-worker</module>
         <module>recommend-service</module>

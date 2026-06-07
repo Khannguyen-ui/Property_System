@@ -11,7 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PropertyService {
-    PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto);
+  List<PropertyResponseDTO> getAllActiveProperties();
+  PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto);
 
     PropertyResponseDTO updateProperty(Long ownerId, Long id, PropertyCreateDTO dto);
 

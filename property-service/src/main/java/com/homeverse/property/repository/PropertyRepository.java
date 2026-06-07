@@ -45,7 +45,7 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             Property.Status status,
             Pageable pageable
     );
-
+    List<Property> findByStatus(Property.Status status);
     Page<Property> findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
             Long ownerId,
             Property.Status status,

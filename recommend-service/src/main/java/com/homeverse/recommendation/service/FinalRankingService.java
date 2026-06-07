@@ -24,56 +24,120 @@ public class FinalRankingService {
     private final RankingConfigService rankingConfigService;
 
     public List<PropertyResponseDTO> rankProperties(
-        List<PropertyResponseDTO> items,
-        String preferredDistrict,
-        UserInterestProfile profile
-) {
-    RankingConfig config =
-            rankingConfigService.getConfig();
+            List<PropertyResponseDTO> items,
+            String preferredDistrict,
+            UserInterestProfile profile) {
+        RankingConfig config = rankingConfigService.getConfig();
 
-    return items.stream()
-            .sorted((a, b) -> Double.compare(
-                    calculatePropertyScore(
-                            b,
-                            preferredDistrict,
-                            profile,
-                            config
-                    ),
-                    calculatePropertyScore(
-                            a,
-                            preferredDistrict,
-                            profile,
-                            config
-                    )
-            ))
-            .toList();
-}
+        List<PropertyResponseDTO> ranked = items.stream()
+                .sorted((a, b) -> Double.compare(
+                        calculatePropertyScore(b, preferredDistrict, profile, config),
+                        calculatePropertyScore(a, preferredDistrict, profile, config)))
+                .toList();
+
+        return diversifyWithoutDropping(ranked);
+    }
+    private List<PropertyResponseDTO> diversifyWithoutDropping(
+            List<PropertyResponseDTO> ranked) {
+        List<PropertyResponseDTO> result = new ArrayList<>();
+        List<PropertyResponseDTO> delayed = new ArrayList<>();
+
+        Map<Long, Integer> ownerCount = new HashMap<>();
+        Map<String, Integer> districtCount = new HashMap<>();
+
+        for (PropertyResponseDTO item : ranked) {
+            Long ownerId = item.getOwnerId();
+            String district = item.getDistrict();
+
+            int ownerSeen = ownerId != null
+                    ? ownerCount.getOrDefault(ownerId, 0)
+                    : 0;
+
+            int districtSeen = district != null
+                    ? districtCount.getOrDefault(district, 0)
+                    : 0;
+
+            if (ownerSeen >= 3 || districtSeen >= 6) {
+                delayed.add(item);
+                continue;
+            }
+
+            result.add(item);
+
+            if (ownerId != null) {
+                ownerCount.put(ownerId, ownerSeen + 1);
+            }
+
+            if (district != null) {
+                districtCount.put(district, districtSeen + 1);
+            }
+        }
+
+        result.addAll(delayed);
+
+        return result;
+    }
 
     public List<PropertyReelResponseDTO> rankReels(
-        List<PropertyReelResponseDTO> items,
-        String preferredDistrict,
-        UserInterestProfile profile
-) {
-    RankingConfig config =
-            rankingConfigService.getConfig();
+            List<PropertyReelResponseDTO> items,
+            String preferredDistrict,
+            UserInterestProfile profile) {
 
-    return items.stream()
-            .sorted((a, b) -> Double.compare(
-                    calculateReelScore(
-                            b,
-                            preferredDistrict,
-                            profile,
-                            config
-                    ),
-                    calculateReelScore(
-                            a,
-                            preferredDistrict,
-                            profile,
-                            config
-                    )
-            ))
-            .toList();
-}
+        RankingConfig config = rankingConfigService.getConfig();
+
+        List<PropertyReelResponseDTO> ranked = items.stream()
+                .sorted((a, b) -> Double.compare(
+                        calculateReelScore(b, preferredDistrict, profile, config),
+                        calculateReelScore(a, preferredDistrict, profile, config)))
+                .toList();
+
+        return diversifyReelsWithoutDropping(ranked);
+    }
+
+    private List<PropertyReelResponseDTO> diversifyReelsWithoutDropping(
+            List<PropertyReelResponseDTO> ranked) {
+        List<PropertyReelResponseDTO> result = new ArrayList<>();
+        List<PropertyReelResponseDTO> delayed = new ArrayList<>();
+
+        Map<Long, Integer> ownerCount = new HashMap<>();
+        Map<String, Integer> addressCount = new HashMap<>();
+
+        for (PropertyReelResponseDTO item : ranked) {
+            Long ownerId = item.getOwnerId();
+            String address = item.getAddress();
+
+            int ownerSeen = ownerId != null
+                    ? ownerCount.getOrDefault(ownerId, 0)
+                    : 0;
+
+            String addressKey = address != null
+                    ? address.toLowerCase()
+                    : null;
+
+            int addressSeen = addressKey != null
+                    ? addressCount.getOrDefault(addressKey, 0)
+                    : 0;
+
+            if (ownerSeen >= 2 || addressSeen >= 4) {
+                delayed.add(item);
+                continue;
+            }
+
+            result.add(item);
+
+            if (ownerId != null) {
+                ownerCount.put(ownerId, ownerSeen + 1);
+            }
+
+            if (addressKey != null) {
+                addressCount.put(addressKey, addressSeen + 1);
+            }
+        }
+
+        result.addAll(delayed);
+
+        return result;
+    }
 
     private double calculatePropertyScore(
             PropertyResponseDTO item,
@@ -82,9 +146,9 @@ public class FinalRankingService {
             RankingConfig config) {
         double score = item.getScore() != null ? item.getScore() : 0.3;
 
-       Set<String> reasons = item.getReasons() != null
-        ? new LinkedHashSet<>(item.getReasons())
-        : new LinkedHashSet<>();
+        Set<String> reasons = item.getReasons() != null
+                ? new LinkedHashSet<>(item.getReasons())
+                : new LinkedHashSet<>();
 
         if (Boolean.TRUE.equals(item.getIsPromoted())) {
             score += config.getPromotedBoost();
@@ -135,11 +199,21 @@ public class FinalRankingService {
 
             reasons.add("TRUSTED_OWNER");
         }
+        double trendingBoost = calculateTrendingBoost(
+                item.getViewCount(),
+                item.getLikeCount(),
+                item.getSaveCount(),
+                item.getCommentCount(),
+                item.getContactCount());
 
+        if (trendingBoost > 0) {
+            score += trendingBoost;
+            reasons.add("TRENDING");
+        }
         if (reasons.isEmpty()) {
             reasons.add("EXPLORE");
         }
-
+        item.setScore(score);
         item.setReasons(new ArrayList<>(reasons));
 
         return score;
@@ -152,9 +226,9 @@ public class FinalRankingService {
             RankingConfig config) {
         double score = item.getScore() != null ? item.getScore() : 0.3;
 
-       Set<String> reasons = item.getReasons() != null
-        ? new LinkedHashSet<>(item.getReasons())
-        : new LinkedHashSet<>();
+        Set<String> reasons = item.getReasons() != null
+                ? new LinkedHashSet<>(item.getReasons())
+                : new LinkedHashSet<>();
         if (Boolean.TRUE.equals(item.getIsPromoted())) {
             score += config.getPromotedBoost();
             reasons.add("PROMOTED");
@@ -187,11 +261,21 @@ public class FinalRankingService {
             score += freshnessBoost;
             reasons.add("FRESH_ITEM");
         }
+        double trendingBoost = calculateTrendingBoost(
+                item.getViewCount(),
+                item.getLikeCount(),
+                item.getSaveCount(),
+                item.getCommentCount(),
+                item.getContactCount());
 
+        if (trendingBoost > 0) {
+            score += trendingBoost;
+            reasons.add("TRENDING");
+        }
         if (reasons.isEmpty()) {
             reasons.add("EXPLORE");
         }
-
+        item.setScore(score);
         item.setReasons(new ArrayList<>(reasons));
 
         return score;
@@ -221,6 +305,27 @@ public class FinalRankingService {
         return 0.0;
     }
 
+    private double calculateTrendingBoost(
+            Long viewCount,
+            Long likeCount,
+            Long saveCount,
+            Long commentCount,
+            Long contactCount) {
+        long views = viewCount != null ? viewCount : 0;
+        long likes = likeCount != null ? likeCount : 0;
+        long saves = saveCount != null ? saveCount : 0;
+        long comments = commentCount != null ? commentCount : 0;
+        long contacts = contactCount != null ? contactCount : 0;
+
+        double rawScore = views * 0.01
+                + likes * 0.10
+                + saves * 0.30
+                + comments * 0.50
+                + contacts * 1.00;
+
+        return Math.min(rawScore, 1.0);
+    }
+
     private static class DiversityFilter {
 
         private final Map<Long, Integer> ownerCount = new HashMap<>();
@@ -233,7 +338,7 @@ public class FinalRankingService {
             if (ownerId != null) {
                 int count = ownerCount.getOrDefault(ownerId, 0);
 
-                if (count >= 10) {
+                if (count >= 3) {
                     return false;
                 }
 
@@ -243,7 +348,7 @@ public class FinalRankingService {
             if (district != null) {
                 int count = districtCount.getOrDefault(district, 0);
 
-                if (count >= 20) {
+                if (count >= 6) {
                     return false;
                 }
 

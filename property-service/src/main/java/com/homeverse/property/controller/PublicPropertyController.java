@@ -33,6 +33,11 @@ public class PublicPropertyController {
         return ResponseEntity.ok(propertyService.getPublicProperties(page, size));
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<List<PropertyResponseDTO>> getAllActiveProperties() {
+        return ResponseEntity.ok(propertyService.getAllActiveProperties());
+    }
+
     @GetMapping("/owners/{ownerId}/trust-score")
     public ApiResponse<Double> getOwnerTrustScore(@PathVariable Long ownerId) {
         return ApiResponse.<Double>builder()

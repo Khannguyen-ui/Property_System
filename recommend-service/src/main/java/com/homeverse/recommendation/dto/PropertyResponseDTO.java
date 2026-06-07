@@ -29,4 +29,5 @@ public class PropertyResponseDTO {
     private Boolean isLiked;
     private Boolean isSaved;
     private Long commentCount;
+    private Long contactCount;
 }

@@ -77,6 +77,7 @@ public class RedisRecommendationService {
                                 .likeCount(property.getLikeCount())
                                 .saveCount(property.getSaveCount())
                                 .viewCount(property.getViewCount())
+                                .contactCount(property.getContactCount())
                                 .isLiked(property.getIsLiked())
                                 .isSaved(property.getIsSaved())
                                 .commentCount(property.getCommentCount())
@@ -133,6 +134,7 @@ public class RedisRecommendationService {
                                 .saveCount(reel.getSaveCount())
                                 .viewCount(reel.getViewCount())
                                 .commentCount(reel.getCommentCount())
+                                .contactCount(reel.getContactCount())
                                 .ownerSlug(reel.getOwnerSlug())
                                 .ownerNameSnapshot(reel.getOwnerNameSnapshot())
                                 .ownerAvatarSnapshot(reel.getOwnerAvatarSnapshot())
@@ -151,31 +153,7 @@ public class RedisRecommendationService {
 
         Map<RecommendationArm, Double> weights = banditService.getWeights(userId);
 
-        int finalLimit = safeLimit(config.getFinalLimit(), 50);
-        int promotedLimit = safeLimit(config.getPromotedLimit(), 5);
-        int remainingSlots = Math.max(finalLimit - promotedLimit, finalLimit);
-
-        int behaviorLimit = calculateDynamicLimit(
-                remainingSlots,
-                weights,
-                RecommendationArm.BEHAVIOR);
-
-        int collaborativeLimit = calculateDynamicLimit(
-                remainingSlots,
-                weights,
-                RecommendationArm.COLLABORATIVE);
-
-        int trendingLimit = calculateDynamicLimit(
-                remainingSlots,
-                weights,
-                RecommendationArm.TRENDING);
-
-        int randomLimit = Math.max(
-                calculateDynamicLimit(
-                        remainingSlots,
-                        weights,
-                        RecommendationArm.RANDOM),
-                finalLimit);
+        List<PropertyResponseDTO> allProperties = propertyClient.getAllActiveProperties();
 
         List<PropertyResponseDTO> promoted = propertyClient.getPromotedProperties();
 
@@ -189,14 +167,21 @@ public class RedisRecommendationService {
             trending = propertyClient.getTrendingProperties();
         }
 
-        List<PropertyResponseDTO> random = propertyClient.getRandomProperties();
-
         Map<Long, PropertyResponseDTO> result = new LinkedHashMap<>();
 
         addProperties(
                 result,
+                allProperties,
+                allProperties.size(),
+                "property",
+                0.1,
+                null,
+                userId);
+
+        addProperties(
+                result,
                 promoted,
-                promotedLimit,
+                promoted.size(),
                 "property",
                 1.0,
                 null,
@@ -205,7 +190,7 @@ public class RedisRecommendationService {
         addProperties(
                 result,
                 behavior,
-                behaviorLimit,
+                behavior.size(),
                 "property",
                 null,
                 RecommendationArm.BEHAVIOR,
@@ -214,7 +199,7 @@ public class RedisRecommendationService {
         addProperties(
                 result,
                 collaborative,
-                collaborativeLimit,
+                collaborative.size(),
                 "property",
                 null,
                 RecommendationArm.COLLABORATIVE,
@@ -223,47 +208,14 @@ public class RedisRecommendationService {
         addProperties(
                 result,
                 trending,
-                trendingLimit,
+                trending.size(),
                 "property",
                 0.6,
                 RecommendationArm.TRENDING,
                 userId);
 
-        addProperties(
-                result,
-                random,
-                randomLimit,
-                "property",
-                0.3,
-                RecommendationArm.RANDOM,
-                userId);
-
-        if (result.size() < finalLimit) {
-            addProperties(
-                    result,
-                    propertyClient.getRandomProperties(),
-                    finalLimit,
-                    "property",
-                    0.2,
-                    RecommendationArm.RANDOM,
-                    userId);
-            int retry = 0;
-
-            while (result.size() < finalLimit && retry < 10) {
-                addProperties(
-                        result,
-                        propertyClient.getRandomProperties(),
-                        finalLimit,
-                        "property",
-                        0.2,
-                        RecommendationArm.RANDOM,
-                        userId);
-
-                retry++;
-            }
-        }
-
         List<PropertyResponseDTO> combined = new ArrayList<>(result.values());
+
         boostFollowedOwnersForProperties(userId, combined);
 
         String preferredDistrict = sessionPreferenceService.getFavoriteDistrict(userId);
@@ -273,13 +225,15 @@ public class RedisRecommendationService {
         }
 
         UserInterestProfile profile = userInterestProfileService.getProfile(userId);
+
+        System.out.println("ALL PROPERTY SIZE = " + allProperties.size());
         System.out.println("PROMOTED SIZE = " + promoted.size());
         System.out.println("BEHAVIOR SIZE = " + behavior.size());
         System.out.println("COLLAB SIZE = " + collaborative.size());
         System.out.println("TRENDING SIZE = " + trending.size());
-        System.out.println("RANDOM SIZE = " + random.size());
         System.out.println("RESULT SIZE = " + result.size());
         System.out.println("COMBINED SIZE = " + combined.size());
+
         return finalRankingService.rankProperties(
                 combined,
                 preferredDistrict,
@@ -462,49 +416,49 @@ public class RedisRecommendationService {
                 preferredDistrict,
                 profile);
     }
+
     private void boostFollowedOwnersForReels(
-        Long userId,
-        List<PropertyReelResponseDTO> items
-) {
-    if (userId == null || items == null || items.isEmpty()) {
-        return;
-    }
-
-    try {
-        List<Long> followedOwners = propertyClient.getFollowedOwnerIds(userId);
-
-        if (followedOwners == null || followedOwners.isEmpty()) {
+            Long userId,
+            List<PropertyReelResponseDTO> items) {
+        if (userId == null || items == null || items.isEmpty()) {
             return;
         }
 
-        Set<Long> followedOwnerSet = new HashSet<>(followedOwners);
+        try {
+            List<Long> followedOwners = propertyClient.getFollowedOwnerIds(userId);
 
-        for (PropertyReelResponseDTO item : items) {
-            if (item.getOwnerId() == null) {
-                continue;
+            if (followedOwners == null || followedOwners.isEmpty()) {
+                return;
             }
 
-            if (followedOwnerSet.contains(item.getOwnerId())) {
-                double currentScore = item.getScore() != null ? item.getScore() : 0.0;
+            Set<Long> followedOwnerSet = new HashSet<>(followedOwners);
 
-                item.setScore(currentScore + 0.6);
-
-                List<String> reasons = item.getReasons() != null
-                        ? new ArrayList<>(item.getReasons())
-                        : new ArrayList<>();
-
-                if (!reasons.contains("FOLLOWING_OWNER")) {
-                    reasons.add("FOLLOWING_OWNER");
+            for (PropertyReelResponseDTO item : items) {
+                if (item.getOwnerId() == null) {
+                    continue;
                 }
 
-                item.setReasons(reasons);
-            }
-        }
+                if (followedOwnerSet.contains(item.getOwnerId())) {
+                    double currentScore = item.getScore() != null ? item.getScore() : 0.0;
 
-    } catch (Exception e) {
-        e.printStackTrace();
+                    item.setScore(currentScore + 0.6);
+
+                    List<String> reasons = item.getReasons() != null
+                            ? new ArrayList<>(item.getReasons())
+                            : new ArrayList<>();
+
+                    if (!reasons.contains("FOLLOWING_OWNER")) {
+                        reasons.add("FOLLOWING_OWNER");
+                    }
+
+                    item.setReasons(reasons);
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-}
 
     private void addProperties(
             Map<Long, PropertyResponseDTO> result,
@@ -537,6 +491,7 @@ public class RedisRecommendationService {
                             item.setIsLiked(full.getIsLiked());
                             item.setIsSaved(full.getIsSaved());
                             item.setCommentCount(full.getCommentCount());
+                            item.setContactCount(full.getContactCount());
                         }
                     } catch (Exception ignored) {
                     }
@@ -560,9 +515,32 @@ public class RedisRecommendationService {
                                 arm);
                     }
 
-                    result.putIfAbsent(
-                            item.getId(),
-                            item);
+                    PropertyResponseDTO existing = result.get(item.getId());
+
+                    if (existing == null) {
+                        result.put(item.getId(), item);
+                    } else {
+                        if (item.getScore() != null) {
+                            existing.setScore(
+                                    Math.max(
+                                            existing.getScore() != null ? existing.getScore() : 0.0,
+                                            item.getScore()));
+                        }
+
+                        List<String> reasons = existing.getReasons() != null
+                                ? new ArrayList<>(existing.getReasons())
+                                : new ArrayList<>();
+
+                        if (item.getReasons() != null) {
+                            for (String reason : item.getReasons()) {
+                                if (!reasons.contains(reason)) {
+                                    reasons.add(reason);
+                                }
+                            }
+                        }
+
+                        existing.setReasons(reasons);
+                    }
                 });
     }
 
@@ -592,7 +570,9 @@ public class RedisRecommendationService {
                     if (item.getLikeCount() == null
                             || item.getSaveCount() == null
                             || item.getViewCount() == null
-                            || item.getCommentCount() == null) {
+                            || item.getCommentCount() == null
+                            || item.getContactCount() == null
+                            || item.getOwnerId() == null) {
 
                         try {
                             ApiResponse<PropertyReelResponseDTO> response = propertyClient.getReelById(item.getId());
@@ -607,6 +587,8 @@ public class RedisRecommendationService {
                                 item.setIsLiked(fullReel.getIsLiked());
                                 item.setIsSaved(fullReel.getIsSaved());
                                 item.setCommentCount(fullReel.getCommentCount());
+                                item.setOwnerId(fullReel.getOwnerId());
+                                item.setContactCount(fullReel.getContactCount());
                             }
                         } catch (Exception ignored) {
                         }
