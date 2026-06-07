@@ -31,11 +31,20 @@ public class PropertyAnalyticsController {
     @GetMapping("/ward-prices")
     public ResponseEntity<List<WardPriceDTO>> getPricesByWards(
             @RequestParam(required = false) String province,
-            @RequestParam String district,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String ward,
             @RequestParam(required = false) String propertyType,
             @RequestParam String transactionType) {
 
-        return ResponseEntity.ok(analyticsService.getPricesByWards(province, district, propertyType, transactionType));
+        return ResponseEntity.ok(
+                analyticsService.getPricesByWards(
+                        province,
+                        district,
+                        ward,
+                        propertyType,
+                        transactionType
+                )
+        );
     }
 
     @GetMapping("/top-regions")

@@ -40,11 +40,10 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
             if (province != null && !province.isEmpty()) {
                 boolQuery.filter(f -> f.term(t -> t.field("province.keyword").value(province)));
             }
-            if (district != null && !district.isEmpty()) {
-                boolQuery.filter(f -> f.term(t -> t.field("district.keyword").value(district))); // 🟢 THÊM .keyword
-            }
-            if (ward != null && !ward.isEmpty()) {
-                boolQuery.filter(f -> f.term(t -> t.field("ward.keyword").value(ward))); // 🟢 THÊM .keyword
+            if (ward != null && !ward.isBlank()) {
+                boolQuery.filter(f -> f.term(t -> t.field("ward.keyword").value(ward)));
+            } else if (district != null && !district.isBlank()) {
+                boolQuery.filter(f -> f.term(t -> t.field("district.keyword").value(district)));
             }
             if (propertyType != null && !propertyType.isEmpty()) {
                 boolQuery.filter(f -> f.term(t -> t.field("propertyType").value(propertyType)));
@@ -96,7 +95,7 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
             }
 
             return PropertyAnalyticsResponse.builder()
-                    .marketInsights(calculateInsights(trends, transactionType,province, district, ward))
+                    .marketInsights(calculateInsights(trends, transactionType, province, district, ward))
                     .trends(trends)
                     .build();
 
@@ -107,32 +106,41 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
     }
 
     @Override
-    public List<WardPriceDTO> getPricesByWards(String province, String district, String propertyType, String transactionType) {
+    public List<WardPriceDTO> getPricesByWards(
+            String province,
+            String district,
+            String ward,
+            String propertyType,
+            String transactionType
+    ) {
         try {
-            // 1. Lọc bắt buộc: ACTIVE và đúng Quận (district)
             BoolQuery.Builder boolQuery = new BoolQuery.Builder()
                     .filter(f -> f.term(t -> t.field("status").value("ACTIVE")))
                     .filter(f -> f.term(t -> t.field("transactionType").value(transactionType)));
-            if (province != null && !province.isEmpty()) {
+
+            if (province != null && !province.isBlank()) {
                 boolQuery.filter(f -> f.term(t -> t.field("province.keyword").value(province)));
             }
-            if (district != null && !district.isEmpty()) {
+
+            if (ward != null && !ward.isBlank()) {
+                boolQuery.filter(f -> f.term(t -> t.field("ward.keyword").value(ward)));
+            } else if (district != null && !district.isBlank()) {
                 boolQuery.filter(f -> f.term(t -> t.field("district.keyword").value(district)));
             }
-            if (propertyType != null && !propertyType.isEmpty()) {
+
+            if (propertyType != null && !propertyType.isBlank()) {
                 boolQuery.filter(f -> f.term(t -> t.field("propertyType").value(propertyType)));
             }
 
             String targetField = "FOR_SALE".equals(transactionType) ? "pricePerSqm" : "price";
             String unit = "FOR_SALE".equals(transactionType) ? "tr/m²" : "tr/tháng";
 
-            // 2. Build Aggregation: Gom nhóm theo Phường (ward)
             SearchRequest searchRequest = SearchRequest.of(s -> s
                     .index(indexName)
-                    .size(0) // Không lấy bài đăng thô
+                    .size(0)
                     .query(q -> q.bool(boolQuery.build()))
                     .aggregations("group_by_ward", a -> a
-                            .terms(t -> t.field("ward.keyword").size(20)) // 🟢 Chỗ này sếp viết đúng chuẩn rồi
+                            .terms(t -> t.field("ward.keyword").size(20))
                             .aggregations("popular_price", sub -> sub.percentiles(p -> p.field(targetField).percents(50.0)))
                     )
             );
@@ -140,11 +148,10 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
             SearchResponse<Void> response = esClient.search(searchRequest, Void.class);
             List<WardPriceDTO> result = new ArrayList<>();
 
-            // 3. Bóc tách dữ liệu mảng Terms
             Aggregate aggregate = response.aggregations().get("group_by_ward");
-            if (aggregate != null && aggregate.isSterms()) { // isSterms = String Terms
-                for (co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket bucket : aggregate.sterms().buckets().array()) {
 
+            if (aggregate != null && aggregate.isSterms()) {
+                for (co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket bucket : aggregate.sterms().buckets().array()) {
                     double medianVal = 0.0;
                     Aggregate popAgg = bucket.aggregations().get("popular_price");
 
@@ -155,16 +162,15 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
                         }
                     }
 
-                    // Chia cho 1 triệu và làm tròn
                     long priceInMillion = BigDecimal.valueOf(medianVal)
-                            .divide(BigDecimal.valueOf(1000000), RoundingMode.HALF_UP)
+                            .divide(BigDecimal.valueOf(1_000_000), RoundingMode.HALF_UP)
                             .longValue();
 
                     result.add(WardPriceDTO.builder()
-                            .wardName(bucket.key().stringValue()) // Tên phường
+                            .wardName(bucket.key().stringValue())
                             .averagePrice(priceInMillion > 0 ? String.valueOf(priceInMillion) : "Đang cập nhật")
                             .unit(unit)
-                            .totalPosts(bucket.docCount()) // Số lượng tin đăng
+                            .totalPosts(bucket.docCount())
                             .build());
                 }
             }
@@ -242,7 +248,9 @@ public class PropertyAnalyticsServiceImpl implements PropertyAnalyticsService {
                     .filter(f -> f.term(t -> t.field("status").value("ACTIVE")));
 
             // Trường gom nhóm (Ví dụ: "province.keyword" hoặc "district.keyword")
-            String groupByField = (regionField != null && !regionField.isEmpty()) ? regionField : "district.keyword";
+            String groupByField = (regionField != null && !regionField.isEmpty())
+                    ? regionField
+                    : "province.keyword";
 
             // 2. Build Aggregation Kép (Gom theo Tỉnh/Thành -> Sau đó gom theo Loại Giao Dịch)
             SearchRequest searchRequest = SearchRequest.of(s -> s
