@@ -1,7 +1,9 @@
 package com.homeverse.payment.service.impl;
 
 import com.homeverse.common.dto.PaymentEvent;
+import com.homeverse.payment.client.PropertyClient;
 import com.homeverse.payment.client.WalletClient;
+import com.homeverse.payment.dto.PropertyResponseDTO;
 import com.homeverse.payment.entity.PackageType;
 import com.homeverse.payment.entity.ServicePackage;
 import com.homeverse.payment.entity.Transaction;
@@ -14,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.time.LocalDateTime;
 import java.util.List;
+
 
 @Slf4j
 @Service
@@ -26,6 +30,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     private final ServicePackageRepository packageRepository;
     private final PaymentProducer paymentProducer;
     private final WalletClient walletClient;
+    private final PropertyClient propertyClient;
 
     @Override
     @Transactional
@@ -84,6 +89,23 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
             if (propertyId == null) {
                 throw new RuntimeException("Thiếu ID bài đăng cần đẩy tin");
+            }
+            PropertyResponseDTO property = propertyClient.getProperty(propertyId);
+
+            if (property == null) {
+                throw new RuntimeException("Không tìm thấy bài đăng cần đẩy tin");
+            }
+
+            if (!userId.equals(property.getOwnerId())) {
+                throw new RuntimeException("Bạn không có quyền mua gói đẩy tin cho bài đăng này");
+            }
+
+            if (!"ACTIVE".equalsIgnoreCase(property.getStatus())) {
+                throw new RuntimeException("Chỉ có thể mua gói đẩy tin cho bài đăng đã được duyệt và đang hiển thị");
+            }
+
+            if (property.getExpiresAt() != null && property.getExpiresAt().isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("Bài đăng đã hết hạn, không thể mua gói đẩy tin");
             }
 
             walletClient.debit(userId, pkg.getPrice());
