@@ -11,38 +11,39 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PropertyService {
-  PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto);
+    PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto);
 
-  PropertyResponseDTO updateProperty(Long ownerId, Long id, PropertyCreateDTO dto);
+    PropertyResponseDTO updateProperty(Long ownerId, Long id, PropertyCreateDTO dto);
 
-  void deleteProperty(Long ownerId, Long id);
+    void deleteProperty(Long ownerId, Long id);
 
-  void hardDeleteProperty(Long ownerId, Long id);
+    void hardDeleteProperty(Long ownerId, Long id);
 
-  void restoreProperty(Long ownerId, Long id);
+    void restoreProperty(Long ownerId, Long id);
 
-  Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page, int size);
+    Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page, int size);
 
-  Page<PropertyResponseDTO> getPublicProperties(int page, int size);
+    Page<PropertyResponseDTO> getPublicProperties(int page, int size);
 
-  PropertyResponseDTO getPublicPropertyDetail(Long id);
+    PropertyResponseDTO getPublicPropertyDetail(Long id);
 
-  PropertyReelResponseDTO getPropertyReelById(Long id);
+    PropertyReelResponseDTO getPropertyReelById(Long id);
 
-  ReelsFeedResponse getReelsFeed(Long currentUserId, String guestId, String cursor, int size);
+    ReelsFeedResponse getReelsFeed(Long currentUserId, String guestId, String cursor, int size);
 
-  List<PropertyResponseDTO> getPromotedProperties();
+    List<PropertyResponseDTO> getPromotedProperties();
 
-  List<PropertyResponseDTO> getTrendingProperties();
+    List<PropertyResponseDTO> getTrendingProperties();
 
-  List<PropertyResponseDTO> getRandomProperties();
+    List<PropertyResponseDTO> getRandomProperties();
 
-  List<PropertyReelResponseDTO> getPromotedReels();
+    List<PropertyReelResponseDTO> getPromotedReels();
 
-  List<PropertyReelResponseDTO> getTrendingReels();
+    List<PropertyReelResponseDTO> getTrendingReels();
 
-  List<PropertyReelResponseDTO> getRandomReels();
-  Double getOwnerTrustScore(Long ownerId);
+    List<PropertyReelResponseDTO> getRandomReels();
+
+    Double getOwnerTrustScore(Long ownerId);
 
     // API cũ: chỉ lấy danh sách bài ACTIVE của owner
     Page<PropertyResponseDTO> getPropertiesByOwnerId(
@@ -59,10 +60,12 @@ public interface PropertyService {
             int size,
             String propertyType
     );
+
     void contactProperty(
-        Long userId,
-        Long propertyId
-);
+            Long userId,
+            Long propertyId
+    );
+
     Page<PropertyResponseDTO> getMyProperties(
             Long ownerId,
             int page,
@@ -70,4 +73,6 @@ public interface PropertyService {
             String status,
             String transactionType
     );
+
+    Page<PropertyResponseDTO> getPublicPropertiesByProject(Long projectId, int page, int size);
 }

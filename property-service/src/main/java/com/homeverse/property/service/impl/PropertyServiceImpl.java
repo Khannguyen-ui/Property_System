@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.homeverse.property.repository.PropertyCommentRepository;
 import com.homeverse.property.entity.PropertyComment;
+
 import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
@@ -283,7 +284,7 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     @Transactional(readOnly = true) // Tối ưu tốc độ cho hàm chỉ đọc (GET)
     public org.springframework.data.domain.Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page,
-            int size) {
+                                                                                            int size) {
 
         // Tạo bộ phân trang (Ví dụ: Trang 0, mỗi trang lấy 10 bài)
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
@@ -752,14 +753,14 @@ public class PropertyServiceImpl implements PropertyService {
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.LIKE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.LIKE);
 
         Long saveCount = saveStr != null
                 ? Long.parseLong(saveStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.SAVE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.SAVE);
 
         dto.setLikeCount(likeCount);
         dto.setSaveCount(saveCount);
@@ -775,8 +776,8 @@ public class PropertyServiceImpl implements PropertyService {
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
-                        propertyId,
-                        PropertyComment.Status.ACTIVE);
+                propertyId,
+                PropertyComment.Status.ACTIVE);
 
         dto.setCommentCount(commentCount);
         dto.setContactCount(
@@ -823,14 +824,14 @@ public class PropertyServiceImpl implements PropertyService {
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.LIKE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.LIKE);
 
         Long saveCount = saveStr != null
                 ? Long.parseLong(saveStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.SAVE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.SAVE);
 
         dto.setLikeCount(likeCount);
         dto.setSaveCount(saveCount);
@@ -842,8 +843,8 @@ public class PropertyServiceImpl implements PropertyService {
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
-                        propertyId,
-                        PropertyComment.Status.ACTIVE);
+                propertyId,
+                PropertyComment.Status.ACTIVE);
 
         dto.setCommentCount(commentCount);
         dto.setLiked(false);
@@ -917,6 +918,7 @@ public class PropertyServiceImpl implements PropertyService {
             e.printStackTrace();
         }
     }
+
     @Override
     @Transactional(readOnly = true)
     public Page<PropertyResponseDTO> getMyProperties(
@@ -980,6 +982,22 @@ public class PropertyServiceImpl implements PropertyService {
 
         return propertyRepository
                 .findByOwnerIdOrderByCreatedAtDesc(ownerId, pageable)
+                .map(this::mapToResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PropertyResponseDTO> getPublicPropertiesByProject(Long projectId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        LocalDateTime now = LocalDateTime.now();
+
+        return propertyRepository
+                .findPublicByProjectId(
+                        projectId,
+                        Property.Status.ACTIVE,
+                        now,
+                        pageable
+                )
                 .map(this::mapToResponse);
     }
 }

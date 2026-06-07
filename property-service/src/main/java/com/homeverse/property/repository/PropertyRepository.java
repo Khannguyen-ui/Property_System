@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +40,6 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     );
 
 
-
     Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(
             Long ownerId,
             Property.Status status,
@@ -59,6 +59,7 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             Property.TransactionType transactionType,
             Pageable pageable
     );
+
     Page<Property> findByOwnerIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
             Long ownerId,
             Property.Status status,
@@ -243,6 +244,21 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     Page<Property> findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
             Long ownerId,
             Property.TransactionType transactionType,
+            Pageable pageable
+    );
+
+    @Query("""
+                SELECT p
+                FROM Property p
+                WHERE p.projectId = :projectId
+                  AND p.status = :status
+                  AND p.expiresAt > :now
+                ORDER BY p.createdAt DESC
+            """)
+    Page<Property> findPublicByProjectId(
+            @Param("projectId") Long projectId,
+            @Param("status") Property.Status status,
+            @Param("now") LocalDateTime now,
             Pageable pageable
     );
 

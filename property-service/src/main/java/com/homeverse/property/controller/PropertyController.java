@@ -79,6 +79,7 @@ public class PropertyController {
         propertyService.hardDeleteProperty(ownerId, id);
         return ResponseEntity.ok("Đã xóa vĩnh viễn bài đăng khỏi hệ thống!");
     }
+
     @GetMapping
     public ResponseEntity<Page<PropertyResponseDTO>> getMyProperties(
             Authentication authentication,
@@ -93,11 +94,6 @@ public class PropertyController {
         );
     }
 
-    // ================== Helper method ==================
-    private Long extractUserId(Authentication authentication) {
-        String userIdStr = (String) authentication.getPrincipal();
-        return Long.valueOf(userIdStr);
-    }
 
     @PostMapping("/{propertyId}/contact")
     public ResponseEntity<Void> contactProperty(
@@ -108,5 +104,20 @@ public class PropertyController {
                 propertyId);
 
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/by-project/{projectId}")
+    public ResponseEntity<Page<PropertyResponseDTO>> getPublicPropertiesByProject(
+            @PathVariable Long projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size
+    ) {
+        return ResponseEntity.ok(propertyService.getPublicPropertiesByProject(projectId, page, size));
+    }
+
+    // ================== Helper method ==================
+    private Long extractUserId(Authentication authentication) {
+        String userIdStr = (String) authentication.getPrincipal();
+        return Long.valueOf(userIdStr);
     }
 }
