@@ -4,6 +4,7 @@ import com.homeverse.recommendation.dto.PredictRequest;
 import com.homeverse.recommendation.dto.PredictResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "ml-client",
@@ -12,5 +13,5 @@ import org.springframework.web.bind.annotation.PostMapping;
 public interface MLClient {
 
     @PostMapping("/ml/predict")
-    PredictResponse predict(PredictRequest request);
+    PredictResponse predict(@RequestBody PredictRequest request);
 }

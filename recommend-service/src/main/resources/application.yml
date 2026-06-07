@@ -6,7 +6,7 @@ spring:
     name: recommend-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/recommend_db
+    url: jdbc:postgresql://${POSTGRES_HOST:host.docker.internal}:${POSTGRES_PORT:5432}/${POSTGRES_DB:recommend_db}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver

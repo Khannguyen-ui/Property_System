@@ -9,10 +9,12 @@ import com.homeverse.recommendation.enums.FraudDecision;
 import com.homeverse.recommendation.model.UserBehavior;
 import com.homeverse.recommendation.repository.UserBehaviorRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
@@ -26,8 +28,13 @@ public class RecommendationService {
     private final BanditService banditService;
 
     public PredictResponse predict(PredictRequest request) {
-        recommendationMetricsService.getMlPredictCounter().increment();
-        return mlClient.predict(request);
+        try {
+            recommendationMetricsService.getMlPredictCounter().increment();
+            return mlClient.predict(request);
+        } catch (Exception e) {
+            log.warn("ML predict failed, use fallback. reason={}", e.getMessage());
+            return buildFallbackResponse(request, "ml_unavailable");
+        }
     }
 
     public PredictResponse track(TrackEventRequest request) {
@@ -45,10 +52,22 @@ public class RecommendationService {
             }
 
             PredictRequest predictRequest = buildPredictRequest(request);
-            PredictResponse response = mlClient.predict(predictRequest);
+
+            PredictResponse response;
+            try {
+                response = mlClient.predict(predictRequest);
+                recommendationMetricsService.getMlPredictCounter().increment();
+            } catch (Exception e) {
+                log.warn(
+                        "ML service failed, keep tracking with fallback. userId={}, itemId={}, reason={}",
+                        request.getUserId(),
+                        request.getItemId(),
+                        e.getMessage()
+                );
+                response = buildFallbackResponse(predictRequest, "fallback_rule");
+            }
 
             recommendationMetricsService.getTrackCounter().increment();
-            recommendationMetricsService.getMlPredictCounter().increment();
 
             UserBehavior behavior = buildUserBehavior(
                     request,
@@ -58,9 +77,24 @@ public class RecommendationService {
             );
 
             userBehaviorRepository.save(behavior);
-            trackSessionDistrict(request);
-            recordBanditReward(request);
-            userInterestProfileService.updateProfile(request.getUserId());
+
+            try {
+                trackSessionDistrict(request);
+            } catch (Exception e) {
+                log.warn("Track district failed. userId={}, reason={}", request.getUserId(), e.getMessage());
+            }
+
+            try {
+                recordBanditReward(request);
+            } catch (Exception e) {
+                log.warn("Bandit reward failed. userId={}, reason={}", request.getUserId(), e.getMessage());
+            }
+
+            try {
+                userInterestProfileService.updateProfile(request.getUserId());
+            } catch (Exception e) {
+                log.warn("Update user profile failed. userId={}, reason={}", request.getUserId(), e.getMessage());
+            }
 
             return response;
         });
@@ -78,6 +112,49 @@ public class RecommendationService {
         return response;
     }
 
+    private PredictResponse buildFallbackResponse(PredictRequest request, String label) {
+        PredictResponse response = new PredictResponse();
+
+        response.setUserId(request.getUserId());
+        response.setItemId(request.getItemId());
+        response.setItemType(request.getItemType());
+        response.setScore(calculateFallbackScore(request));
+        response.setLabel(label);
+
+        return response;
+    }
+
+    private double calculateFallbackScore(PredictRequest request) {
+        String action = request.getAction() == null ? "" : request.getAction().trim().toUpperCase();
+
+        double actionScore = switch (action) {
+            case "VIEW" -> 0.2;
+            case "CLICK" -> 0.4;
+            case "LIKE" -> 0.7;
+            case "SAVE" -> 0.9;
+            case "CONTACT" -> 1.0;
+            default -> 0.1;
+        };
+
+        double duration = request.getDuration() == null || request.getDuration() <= 0
+                ? 1.0
+                : request.getDuration();
+
+        double watchTime = request.getWatchTime() == null ? 0.0 : request.getWatchTime();
+        double watchRatio = Math.min(1.0, Math.max(0.0, watchTime / duration));
+
+        double locationMatch = request.getLocationMatch() == null ? 0.0 : request.getLocationMatch();
+        double categoryMatch = request.getCategoryMatch() == null ? 0.0 : request.getCategoryMatch();
+
+        double score =
+                actionScore * 0.55 +
+                        watchRatio * 0.25 +
+                        locationMatch * 0.10 +
+                        categoryMatch * 0.10;
+
+        return Math.min(1.0, Math.max(0.0, score));
+    }
+
     private PredictRequest buildPredictRequest(TrackEventRequest request) {
         PredictRequest predictRequest = new PredictRequest();
 
@@ -85,12 +162,12 @@ public class RecommendationService {
         predictRequest.setItemId(request.getItemId());
         predictRequest.setItemType(request.getItemType());
         predictRequest.setAction(request.getAction());
-        predictRequest.setWatchTime(defaultDouble(request.getWatchTime()));
-        predictRequest.setDuration(defaultDouble(request.getDuration()));
-        predictRequest.setPrice(defaultDouble(request.getPrice()));
-        predictRequest.setUserBudget(defaultDouble(request.getUserBudget()));
-        predictRequest.setLocationMatch(defaultInteger(request.getLocationMatch()));
-        predictRequest.setCategoryMatch(defaultInteger(request.getCategoryMatch()));
+        predictRequest.setWatchTime(request.getWatchTime());
+        predictRequest.setDuration(request.getDuration());
+        predictRequest.setPrice(request.getPrice());
+        predictRequest.setUserBudget(request.getUserBudget());
+        predictRequest.setLocationMatch(request.getLocationMatch());
+        predictRequest.setCategoryMatch(request.getCategoryMatch());
 
         return predictRequest;
     }
@@ -113,8 +190,8 @@ public class RecommendationService {
                 .locationMatch(predictRequest.getLocationMatch())
                 .categoryMatch(predictRequest.getCategoryMatch())
                 .score(response.getScore())
-                .suspicious(false)
-                .fraudReason(null)
+                .suspicious(fraudCheckResult.getDecision() == FraudDecision.SUSPICIOUS)
+                .fraudReason(fraudCheckResult.getReason())
                 .createdAt(LocalDateTime.now())
                 .build();
     }
@@ -124,10 +201,7 @@ public class RecommendationService {
             return;
         }
 
-        sessionPreferenceService.trackDistrict(
-                request.getUserId(),
-                request.getDistrict()
-        );
+        sessionPreferenceService.trackDistrict(request.getUserId(), request.getDistrict());
     }
 
     private void recordBanditReward(TrackEventRequest request) {
@@ -137,13 +211,5 @@ public class RecommendationService {
                 request.getItemId(),
                 request.getAction()
         );
-    }
-
-    private Double defaultDouble(Double value) {
-        return value != null ? value : 0.0;
-    }
-
-    private Integer defaultInteger(Integer value) {
-        return value != null ? value : 0;
     }
 }
