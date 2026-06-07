@@ -193,14 +193,9 @@ public class    AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
-
-        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-        UserCredential user = userRepository.findByEmail(currentEmail)
-
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        UserCredential user = getCurrentUser();
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-
             throw new AppException(ErrorCode.PASSWORD_INCORRECT);
         }
 
@@ -211,10 +206,7 @@ public class    AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void changeEmail(ChangeEmailRequest request) {
-        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        UserCredential user = userRepository.findByEmail(currentEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        UserCredential user = getCurrentUser();
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new AppException(ErrorCode.PASSWORD_INCORRECT);
@@ -223,6 +215,7 @@ public class    AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(request.getNewEmail())) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
+
         user.setEmail(request.getNewEmail());
         userRepository.save(user);
     }
@@ -342,6 +335,18 @@ public class    AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             // Nếu Token đã hết hạn tự nhiên (bị văng lỗi Exception) thì không cần làm gì cả
             log.warn("Token đã hết hạn hoặc không hợp lệ, bỏ qua khâu Blacklist.");
+        }
+    }
+    private UserCredential getCurrentUser() {
+        String principal = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        try {
+            Long userId = Long.parseLong(principal);
+            return userRepository.findById(userId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        } catch (NumberFormatException e) {
+            return userRepository.findByEmail(principal)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         }
     }
 }
