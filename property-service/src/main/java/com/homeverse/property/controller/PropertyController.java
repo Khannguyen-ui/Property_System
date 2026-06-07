@@ -106,14 +106,7 @@ public class PropertyController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/by-project/{projectId}")
-    public ResponseEntity<Page<PropertyResponseDTO>> getPublicPropertiesByProject(
-            @PathVariable Long projectId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size
-    ) {
-        return ResponseEntity.ok(propertyService.getPublicPropertiesByProject(projectId, page, size));
-    }
+
 
     // ================== Helper method ==================
     private Long extractUserId(Authentication authentication) {
