@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class    AuthServiceImpl implements AuthService {
+public class AuthServiceImpl implements AuthService {
     private final PasswordResetTokenRepository tokenRepository;
     private final UserCredentialRepository userRepository;
     private final UserMapper userMapper;
@@ -307,6 +307,7 @@ public class    AuthServiceImpl implements AuthService {
                 .role(user.getRole().name())
                 .build();
     }
+
     @Override
     public void logout(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -337,15 +338,29 @@ public class    AuthServiceImpl implements AuthService {
             log.warn("Token đã hết hạn hoặc không hợp lệ, bỏ qua khâu Blacklist.");
         }
     }
+
     private UserCredential getCurrentUser() {
-        String principal = SecurityContextHolder.getContext().getAuthentication().getName();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof UserCredential currentUser) {
+            return userRepository.findById(currentUser.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        }
+
+        String principalText = authentication.getName();
 
         try {
-            Long userId = Long.parseLong(principal);
+            Long userId = Long.parseLong(principalText);
             return userRepository.findById(userId)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         } catch (NumberFormatException e) {
-            return userRepository.findByEmail(principal)
+            return userRepository.findByEmail(principalText)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         }
     }
