@@ -21,6 +21,25 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
 
     Page<Property> findByStatus(Property.Status status, Pageable pageable);
 
+    Page<Property> findByStatusAndExpiresAtAfter(
+            Property.Status status,
+            LocalDateTime now,
+            Pageable pageable
+    );
+
+    Optional<Property> findByIdAndStatusAndExpiresAtAfter(
+            Long id,
+            Property.Status status,
+            LocalDateTime now
+    );
+
+    List<Property> findByStatusAndExpiresAtBefore(
+            Property.Status status,
+            LocalDateTime now
+    );
+
+
+
     Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(
             Long ownerId,
             Property.Status status,
@@ -38,6 +57,20 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             Long ownerId,
             Property.Status status,
             Property.TransactionType transactionType,
+            Pageable pageable
+    );
+    Page<Property> findByOwnerIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
+            Long ownerId,
+            Property.Status status,
+            LocalDateTime now,
+            Pageable pageable
+    );
+
+    Page<Property> findByOwnerIdAndStatusAndTransactionTypeAndExpiresAtAfterOrderByCreatedAtDesc(
+            Long ownerId,
+            Property.Status status,
+            Property.TransactionType transactionType,
+            LocalDateTime now,
             Pageable pageable
     );
 
@@ -201,6 +234,7 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             Long ownerId,
             Property.Status status
     );
+
     Page<Property> findByOwnerIdOrderByCreatedAtDesc(
             Long ownerId,
             Pageable pageable

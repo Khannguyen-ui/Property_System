@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableCaching
 @EnableFeignClients
 @EnableScheduling
+
 @org.springframework.kafka.annotation.EnableKafka
 public class PropertyServiceApplication {
 

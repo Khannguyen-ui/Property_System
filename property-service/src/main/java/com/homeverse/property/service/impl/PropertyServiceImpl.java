@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.homeverse.property.repository.PropertyCommentRepository;
 import com.homeverse.property.entity.PropertyComment;
 import java.math.BigDecimal;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -300,16 +301,17 @@ public class PropertyServiceImpl implements PropertyService {
     public Page<PropertyResponseDTO> getPublicProperties(int page, int size) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
 
-        // Chỉ móc những bài đăng có trạng thái ACTIVE (Đã duyệt)
-        return propertyRepository.findByStatus(Property.Status.ACTIVE, pageable)
+        return propertyRepository
+                .findByStatusAndExpiresAtAfter(Property.Status.ACTIVE, LocalDateTime.now(), pageable)
                 .map(this::mapToResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PropertyResponseDTO getPublicPropertyDetail(Long id) {
-        // Chỉ cho phép xem nếu bài đăng tồn tại và đang ACTIVE
-        Property property = propertyRepository.findByIdAndStatus(id, Property.Status.ACTIVE)
+
+        Property property = propertyRepository
+                .findByIdAndStatusAndExpiresAtAfter(id, Property.Status.ACTIVE, LocalDateTime.now())
                 .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
 
         return mapToResponse(property);
@@ -560,6 +562,7 @@ public class PropertyServiceImpl implements PropertyService {
             int size,
             String transactionType) {
         Pageable pageable = PageRequest.of(page, size);
+        LocalDateTime now = LocalDateTime.now();
 
         if (transactionType != null && !transactionType.isBlank()) {
             Property.TransactionType type;
@@ -571,18 +574,20 @@ public class PropertyServiceImpl implements PropertyService {
             }
 
             return propertyRepository
-                    .findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+                    .findByOwnerIdAndStatusAndTransactionTypeAndExpiresAtAfterOrderByCreatedAtDesc(
                             ownerId,
                             Property.Status.ACTIVE,
                             type,
+                            now,
                             pageable)
                     .map(this::mapToResponse);
         }
 
         return propertyRepository
-                .findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                .findByOwnerIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
                         ownerId,
                         Property.Status.ACTIVE,
+                        now,
                         pageable)
                 .map(this::mapToResponse);
     }
