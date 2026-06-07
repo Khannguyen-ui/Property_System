@@ -9,9 +9,13 @@ import com.homeverse.customer.dto.response.CustomerPublicBannerDTO;
 import com.homeverse.customer.dto.response.CustomerPublicResponseDTO;
 import com.homeverse.customer.dto.response.CustomerResponseDTO;
 import com.homeverse.customer.dto.response.KycOcrResponseDTO;
+import com.homeverse.common.dto.KycApprovedEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.homeverse.customer.entity.Customer;
 import com.homeverse.customer.repository.CustomerRepository;
 import com.homeverse.customer.service.CustomerService;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -35,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomerServiceImpl implements CustomerService {
@@ -44,6 +49,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final MediaClient mediaClient;
     private final FptAiClient fptAiClient;
     private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
     @Value("${fpt.ai.api-key}")
     private String fptApiKey;
     private final RBloomFilter<String> citizenIdBloomFilter;
@@ -65,25 +71,25 @@ public class CustomerServiceImpl implements CustomerService {
 
     private Customer getCurrentCustomer() {
 
-    String email = SecurityContextHolder
-            .getContext()
-            .getAuthentication()
-            .getName();
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
 
-    System.out.println("EMAIL TOKEN = [" + email + "]");
+        System.out.println("EMAIL TOKEN = [" + email + "]");
 
-    var customerOpt = customerRepository.findByEmail(email);
+        var customerOpt = customerRepository.findByEmail(email);
 
-    System.out.println("FOUND CUSTOMER = " + customerOpt.isPresent());
+        System.out.println("FOUND CUSTOMER = " + customerOpt.isPresent());
 
-    customerOpt.ifPresent(c ->
-        System.out.println("CUSTOMER DB = " + c.getEmail())
-    );
+        customerOpt.ifPresent(c ->
+                System.out.println("CUSTOMER DB = " + c.getEmail())
+        );
 
-    return customerOpt.orElseThrow(() ->
-            new RuntimeException("Hồ sơ khách hàng không tồn tại!")
-    );
-}
+        return customerOpt.orElseThrow(() ->
+                new RuntimeException("Hồ sơ khách hàng không tồn tại!")
+        );
+    }
 
 
     @Override
@@ -156,6 +162,7 @@ public class CustomerServiceImpl implements CustomerService {
             throw new RuntimeException("Lỗi upload banner: " + e.getMessage());
         }
     }
+
     @Override
     public CustomerPublicBannerDTO getPublicBanner(String slug) {
         Customer customer = customerRepository.findByPublicId(slug)
@@ -314,9 +321,26 @@ public class CustomerServiceImpl implements CustomerService {
 
 
                 CompletableFuture.runAsync(() -> {
+                    try {
+                        KycApprovedEvent event = KycApprovedEvent.builder()
+                                .userId(customer.getId())
+                                .email(customer.getEmail())
+                                .fullName(customer.getFullName())
+                                .kycStatus(customer.getKycStatus())
+                                .build();
 
-                    kafkaTemplate.send("kyc-approved-topic", customer.getEmail());
-                    System.out.println("Đã bắn event KYC thành công cho: " + customer.getEmail());
+                        String payload = objectMapper.writeValueAsString(event);
+
+                        kafkaTemplate.send("kyc-approved-topic", payload);
+
+                        log.info(
+                                "Đã bắn event KYC thành công: email={}, fullName={}",
+                                customer.getEmail(),
+                                customer.getFullName()
+                        );
+                    } catch (Exception e) {
+                        log.error("Không thể gửi KYC event sang identity-service", e);
+                    }
                 });
 
             } else {
