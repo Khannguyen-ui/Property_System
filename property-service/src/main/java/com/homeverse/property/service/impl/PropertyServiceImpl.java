@@ -78,6 +78,8 @@ public class PropertyServiceImpl implements PropertyService {
         if (quota.getRole() == null || !quota.getRole().contains("OWNER")) {
             throw new AppException(ErrorCode.KYC_NOT_VERIFIED);
         }
+        quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
+        ownerQuotaRepository.save(quota);
 
         String snapshotName = null;
         if (dto.getProjectId() != null) {
@@ -151,11 +153,11 @@ public class PropertyServiceImpl implements PropertyService {
                 .promotionPackageName(null)
                 .isPromoted(false)
                 .promotionExpiresAt(null)
-                .isQuotaDeducted(false)
+                .isQuotaDeducted(true)
                 .build();
 
         Property savedProperty = propertyRepository.save(property);
-        log.info("✅ Created Property ID: {}", savedProperty.getId());
+        log.info("Created Property ID: {}", savedProperty.getId());
 
         return mapToResponse(savedProperty);
     }

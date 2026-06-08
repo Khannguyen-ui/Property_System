@@ -132,23 +132,26 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
                 }
 
                 promotionQueueRepository.findFirstByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
-                        id, PromotionQueue.PromotionStatus.WAITING).ifPresent(nextQueue -> {
-                            LocalDateTime now = LocalDateTime.now();
-                            nextQueue.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
-                            nextQueue.setActivatedAt(now);
-                            nextQueue.setExpiresAt(now.plusDays(nextQueue.getDurationDays()));
-                            promotionQueueRepository.save(nextQueue);
+                        id, PromotionQueue.PromotionStatus.WAITING
+                ).ifPresent(nextQueue -> {
+                    LocalDateTime now = LocalDateTime.now();
+                    nextQueue.setStatus(PromotionQueue.PromotionStatus.ACTIVE);
+                    nextQueue.setActivatedAt(now);
+                    nextQueue.setExpiresAt(now.plusDays(nextQueue.getDurationDays()));
+                    promotionQueueRepository.save(nextQueue);
 
-                            property.setIsPromoted(true);
-                            property.setPromotionPackageId(nextQueue.getPackageId());
-                            property.setPromotionPackageName(nextQueue.getPackageName());
-                            property.setPromotionExpiresAt(nextQueue.getExpiresAt());
-                        });
+                    property.setIsPromoted(true);
+                    property.setPromotionPackageId(nextQueue.getPackageId());
+                    property.setPromotionPackageName(nextQueue.getPackageName());
+                    property.setPromotionExpiresAt(nextQueue.getExpiresAt());
+                });
+
             } else if (oldStatus == Property.Status.PENDING && newStatus == Property.Status.REJECTED) {
 
                 List<PromotionQueue> waitingQueues = promotionQueueRepository
                         .findByPropertyIdAndStatusOrderByPriorityLevelDescCreatedAtAsc(
-                                id, PromotionQueue.PromotionStatus.WAITING);
+                                id, PromotionQueue.PromotionStatus.WAITING
+                        );
 
                 for (PromotionQueue queue : waitingQueues) {
                     RefundEvent refundEvent = RefundEvent.builder()
@@ -170,10 +173,17 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
                 }
 
                 if (property.isQuotaDeducted()) {
+                    OwnerQuota quota = ownerQuotaRepository.findById(property.getOwnerId())
+                            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+                    int currentQuota = quota.getFreePostsRemaining() != null ? quota.getFreePostsRemaining() : 0;
+                    quota.setFreePostsRemaining(currentQuota + 1);
+                    ownerQuotaRepository.save(quota);
+
                     property.setQuotaDeducted(false);
                 }
 
-                log.info("🚫 Admin rejected Property ID {}: Refund processed and promotions cancelled.", id);
+                log.info(" Admin rejected Property ID {}: quota refunded and promotions cancelled.", id);
             }
 
             property.setStatus(newStatus);
@@ -329,8 +339,8 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.LIKE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.LIKE);
 
         if (likeCount < 0) {
             likeCount = interactionRepository.countByPropertyIdAndInteractionType(
@@ -345,8 +355,8 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         Long saveCount = saveStr != null
                 ? Long.parseLong(saveStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                        propertyId,
-                        UserPropertyInteraction.InteractionType.SAVE);
+                propertyId,
+                UserPropertyInteraction.InteractionType.SAVE);
 
         if (saveCount < 0) {
             saveCount = interactionRepository.countByPropertyIdAndInteractionType(
@@ -365,19 +375,19 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         String commentStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":comments");
         String contactStr = redisTemplate.opsForValue()
-        .get("property:" + propertyId + ":contacts");
+                .get("property:" + propertyId + ":contacts");
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
-        propertyId,
-        PropertyComment.Status.ACTIVE
-);
+                propertyId,
+                PropertyComment.Status.ACTIVE
+        );
 
         if (commentCount < 0) {
             commentCount = commentRepository.countByPropertyIdAndStatus(
-        propertyId,
-        PropertyComment.Status.ACTIVE
-);
+                    propertyId,
+                    PropertyComment.Status.ACTIVE
+            );
 
             redisTemplate.opsForValue().set(
                     "property:" + propertyId + ":comments",
@@ -388,10 +398,10 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
         dto.setViewCount(viewStr != null ? Long.parseLong(viewStr) : 0L);
         dto.setCommentCount(commentCount);
         dto.setContactCount(
-        contactStr != null
-                ? Long.parseLong(contactStr)
-                : 0L
-);
+                contactStr != null
+                        ? Long.parseLong(contactStr)
+                        : 0L
+        );
         dto.setIsLiked(false);
         dto.setIsSaved(false);
         System.out.println("ADMIN MAPPER RUNNING ID = " + property.getId());
