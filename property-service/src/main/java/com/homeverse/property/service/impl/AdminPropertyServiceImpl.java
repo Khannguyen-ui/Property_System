@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,27 +46,54 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     private final InteractionRepository interactionRepository;
     private final PropertyCommentRepository commentRepository;
     private final RecommendClient recommendClient;
-    // ==========================================
-    // 1. XEM DANH SÁCH (CÓ BỘ LỌC)
-    // ==========================================
+
     @Override
     @Transactional(readOnly = true)
-    public Page<PropertyResponseDTO> getAllProperties(int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<PropertyResponseDTO> getAllProperties(
+            int page,
+            int size,
+            String status,
+            Long ownerId
+    ) {
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
 
-        // Nếu Admin truyền param status (VD: ?status=PENDING) -> Lọc ra để duyệt
-        if (status != null && !status.isEmpty()) {
+        Property.Status enumStatus = null;
+
+        if (status != null && !status.isBlank()) {
             try {
-                Property.Status enumStatus = Property.Status.valueOf(status.toUpperCase());
-                return propertyRepository.findByStatus(enumStatus, pageable).map(this::mapToResponse);
+                enumStatus = Property.Status.valueOf(status.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
             }
         }
 
-        // Nếu không truyền status -> Lấy toàn bộ (Bỏ qua thùng rác nhờ @SQLRestriction
-        // trên Entity)
-        return propertyRepository.findAll(pageable).map(this::mapToResponse);
+        Page<Property> properties;
+
+        if (ownerId != null && enumStatus != null) {
+            properties = propertyRepository.findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                    ownerId,
+                    enumStatus,
+                    pageable
+            );
+        } else if (ownerId != null) {
+            properties = propertyRepository.findByOwnerIdOrderByCreatedAtDesc(
+                    ownerId,
+                    pageable
+            );
+        } else if (enumStatus != null) {
+            properties = propertyRepository.findByStatus(
+                    enumStatus,
+                    pageable
+            );
+        } else {
+            properties = propertyRepository.findAll(pageable);
+        }
+
+        return properties.map(this::mapToResponse);
     }
 
     // ==========================================

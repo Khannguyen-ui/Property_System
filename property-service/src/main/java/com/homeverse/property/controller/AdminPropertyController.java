@@ -1,5 +1,6 @@
 package com.homeverse.property.controller;
 
+import com.homeverse.common.dto.ApiResponse;
 import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.service.AdminPropertyService;
 import lombok.RequiredArgsConstructor;
@@ -17,13 +18,17 @@ public class AdminPropertyController {
 
     private final AdminPropertyService adminPropertyService;
 
-    // 1. Lấy danh sách bài đăng (Có thể truyền ?status=PENDING để lọc bài cần duyệt)
+
     @GetMapping
-    public ResponseEntity<Page<PropertyResponseDTO>> getAllProperties(
+    public ApiResponse<Page<PropertyResponseDTO>> getAllProperties(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(adminPropertyService.getAllProperties(page, size, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long ownerId
+    ) {
+        return ApiResponse.<Page<PropertyResponseDTO>>builder()
+                .result(adminPropertyService.getAllProperties(page, size, status, ownerId))
+                .build();
     }
 
     // 2. Xem chi tiết bài đăng (Admin có quyền xem cả những bài đang bị ẩn hoặc chờ duyệt)
