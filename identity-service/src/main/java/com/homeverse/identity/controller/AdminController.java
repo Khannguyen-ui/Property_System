@@ -36,15 +36,15 @@ public class AdminController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteUser(@PathVariable Long id) {
-        adminService.deleteUser(id);
+    public ApiResponse<String> disableUser(@PathVariable Long id) {
+        adminService.disableUser(id);
         return ApiResponse.<String>builder()
-                .result("Đã xóa vĩnh viễn tài khoản khỏi hệ thống.")
+                .result("Đã vô hiệu hóa tài khoản. Dữ liệu lịch sử vẫn được giữ lại.")
                 .build();
     }
     @GetMapping("/kyc/pending")
-    public ApiResponse<List<UserCredential>> getPendingKycUsers() {
-        return ApiResponse.<List<UserCredential>>builder()
+    public ApiResponse<List<AdminUserResponse>> getPendingKycUsers() {
+        return ApiResponse.<List<AdminUserResponse>>builder()
                 .result(adminService.getPendingKycUsers())
                 .build();
     }
