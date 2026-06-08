@@ -23,7 +23,13 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/customers/init", "/error","/customers/*/summary").permitAll()
+                        .requestMatchers(
+                                "/customers/init",
+                                "/error",
+                                "/customers/*/summary",
+                                "/customers/*/public-profile",
+                                "/customers/*/public-banner"
+                        ).permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
