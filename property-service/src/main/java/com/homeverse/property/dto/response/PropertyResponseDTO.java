@@ -38,6 +38,7 @@ public class PropertyResponseDTO {
     private Long saveCount;
     private Long commentCount;
     private Long contactCount;
+    private String primarySource;
     private Boolean isLiked;
     private Boolean isSaved;
     private boolean isQuotaDeducted;

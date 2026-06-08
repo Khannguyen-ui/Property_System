@@ -1,5 +1,6 @@
 package com.homeverse.property.controller;
 
+import com.homeverse.property.dto.request.OwnerReviewReplyRequest;
 import com.homeverse.property.dto.request.OwnerReviewRequest;
 import com.homeverse.property.dto.response.OwnerRatingSummaryResponse;
 import com.homeverse.property.dto.response.OwnerReviewResponse;
@@ -44,4 +45,14 @@ public class OwnerReviewController {
                 ownerReviewService.getOwnerRatingSummary(ownerId)
         );
     }
+    @PostMapping("/{reviewId}/reply")
+public ResponseEntity<OwnerReviewResponse> replyReview(
+        @RequestHeader("X-User-Id") Long ownerId,
+        @PathVariable Long reviewId,
+        @RequestBody OwnerReviewReplyRequest request
+) {
+    return ResponseEntity.ok(
+            ownerReviewService.replyReview(ownerId, reviewId, request.getReply())
+    );
+}
 }

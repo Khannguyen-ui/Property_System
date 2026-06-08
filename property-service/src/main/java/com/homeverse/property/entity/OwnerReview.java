@@ -4,14 +4,12 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(
-        name = "owner_reviews",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"owner_id", "reviewer_id", "property_id"})
-        }
-)
+@Table(name = "owner_reviews", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "owner_id", "reviewer_id", "property_id" })
+})
 @Getter
 @Setter
 @Builder
@@ -37,7 +35,12 @@ public class OwnerReview {
 
     @Column(columnDefinition = "TEXT")
     private String comment;
-
+    private Boolean verified;
+    @Column(columnDefinition = "TEXT")
+    private String ownerReply;
+    @ElementCollection
+    private List<String> images;
+    private LocalDateTime ownerReplyAt;
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

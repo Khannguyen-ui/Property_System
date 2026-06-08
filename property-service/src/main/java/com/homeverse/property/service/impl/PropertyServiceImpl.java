@@ -35,7 +35,9 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.homeverse.property.repository.PropertyCommentRepository;
+import com.homeverse.property.repository.PropertyContactRepository;
 import com.homeverse.property.entity.PropertyComment;
+import com.homeverse.property.entity.PropertyContact;
 
 import java.math.BigDecimal;
 
@@ -63,7 +65,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final KafkaTemplate<String, Object> objectKafkaTemplate;
     private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-
+    private final PropertyContactRepository propertyContactRepository;
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto) {
@@ -291,7 +293,7 @@ public class PropertyServiceImpl implements PropertyService {
     @Override
     @Transactional(readOnly = true) // Tối ưu tốc độ cho hàm chỉ đọc (GET)
     public org.springframework.data.domain.Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page,
-                                                                                            int size) {
+            int size) {
 
         // Tạo bộ phân trang (Ví dụ: Trang 0, mỗi trang lấy 10 bài)
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
@@ -760,14 +762,14 @@ public class PropertyServiceImpl implements PropertyService {
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                propertyId,
-                UserPropertyInteraction.InteractionType.LIKE);
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.LIKE);
 
         Long saveCount = saveStr != null
                 ? Long.parseLong(saveStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                propertyId,
-                UserPropertyInteraction.InteractionType.SAVE);
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.SAVE);
 
         dto.setLikeCount(likeCount);
         dto.setSaveCount(saveCount);
@@ -783,8 +785,8 @@ public class PropertyServiceImpl implements PropertyService {
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
-                propertyId,
-                PropertyComment.Status.ACTIVE);
+                        propertyId,
+                        PropertyComment.Status.ACTIVE);
 
         dto.setCommentCount(commentCount);
         dto.setContactCount(
@@ -831,14 +833,14 @@ public class PropertyServiceImpl implements PropertyService {
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                propertyId,
-                UserPropertyInteraction.InteractionType.LIKE);
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.LIKE);
 
         Long saveCount = saveStr != null
                 ? Long.parseLong(saveStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
-                propertyId,
-                UserPropertyInteraction.InteractionType.SAVE);
+                        propertyId,
+                        UserPropertyInteraction.InteractionType.SAVE);
 
         dto.setLikeCount(likeCount);
         dto.setSaveCount(saveCount);
@@ -850,8 +852,8 @@ public class PropertyServiceImpl implements PropertyService {
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
                 : commentRepository.countByPropertyIdAndStatus(
-                propertyId,
-                PropertyComment.Status.ACTIVE);
+                        propertyId,
+                        PropertyComment.Status.ACTIVE);
 
         dto.setCommentCount(commentCount);
         dto.setLiked(false);
@@ -870,7 +872,16 @@ public class PropertyServiceImpl implements PropertyService {
                 .increment("property:" + propertyId + ":contacts");
 
         sendContactNotification(userId, property);
+        if (!propertyContactRepository
+                .existsByUserIdAndPropertyId(userId, propertyId)) {
 
+            propertyContactRepository.save(
+                    PropertyContact.builder()
+                            .userId(userId)
+                            .ownerId(property.getOwnerId())
+                            .propertyId(propertyId)
+                            .build());
+        }
         recommendClient.track(
                 TrackEventRequest.builder()
                         .userId(userId)
@@ -933,8 +944,7 @@ public class PropertyServiceImpl implements PropertyService {
             int page,
             int size,
             String status,
-            String transactionType
-    ) {
+            String transactionType) {
         Pageable pageable = PageRequest.of(page, size);
 
         Property.Status statusEnum = null;
@@ -962,8 +972,7 @@ public class PropertyServiceImpl implements PropertyService {
                             ownerId,
                             statusEnum,
                             transactionTypeEnum,
-                            pageable
-                    )
+                            pageable)
                     .map(this::mapToResponse);
         }
 
@@ -972,8 +981,7 @@ public class PropertyServiceImpl implements PropertyService {
                     .findByOwnerIdAndStatusOrderByCreatedAtDesc(
                             ownerId,
                             statusEnum,
-                            pageable
-                    )
+                            pageable)
                     .map(this::mapToResponse);
         }
 
@@ -982,8 +990,7 @@ public class PropertyServiceImpl implements PropertyService {
                     .findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
                             ownerId,
                             transactionTypeEnum,
-                            pageable
-                    )
+                            pageable)
                     .map(this::mapToResponse);
         }
 
@@ -1003,8 +1010,7 @@ public class PropertyServiceImpl implements PropertyService {
                         projectId,
                         Property.Status.ACTIVE,
                         now,
-                        pageable
-                )
+                        pageable)
                 .map(this::mapToResponse);
     }
 

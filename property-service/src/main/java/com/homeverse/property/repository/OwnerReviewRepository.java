@@ -25,4 +25,6 @@ public interface OwnerReviewRepository extends JpaRepository<OwnerReview, Long> 
             WHERE r.ownerId = :ownerId
             """)
     Double getAverageRating(Long ownerId);
+    long countByOwnerIdAndRating(Long ownerId, Integer rating);
+    long countByOwnerIdAndVerifiedTrue(Long ownerId);
 }

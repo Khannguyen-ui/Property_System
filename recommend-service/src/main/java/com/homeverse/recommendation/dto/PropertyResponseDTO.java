@@ -30,4 +30,5 @@ public class PropertyResponseDTO {
     private Boolean isSaved;
     private Long commentCount;
     private Long contactCount;
+    private String primarySource;
 }

@@ -14,4 +14,5 @@ public interface OwnerReviewService {
 
     OwnerRatingSummaryResponse getOwnerRatingSummary(Long ownerId);
     void trackOwnerRating(Long reviewerId, Long ownerId, Integer rating);
+    public OwnerReviewResponse replyReview(Long ownerId, Long reviewId, String reply);
 }

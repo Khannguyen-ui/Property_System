@@ -19,6 +19,7 @@ public class PropertyReelResponseDTO {
     private Long likeCount;
     private Long commentCount;
     private Long contactCount;
+    private String primarySource;
     private String ownerSlug;
     private String ownerNameSnapshot;
     private String ownerAvatarSnapshot;

@@ -27,6 +27,7 @@ public class PropertyReelResponseDTO {
     private Boolean isLiked;
     private Boolean isSaved;
     private Long commentCount;
+    private String primarySource;
     private String ownerSlug;
     private Long ownerId;
     private Long contactCount;

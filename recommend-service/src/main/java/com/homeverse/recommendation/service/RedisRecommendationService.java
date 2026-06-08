@@ -35,6 +35,7 @@ public class RedisRecommendationService {
     private final UserInterestProfileService userInterestProfileService;
     private final CollaborativeRecommendationService collaborativeRecommendationService;
     private final RankingConfigService rankingConfigService;
+    private final SourceAnalyticsService sourceAnalyticsService;
 
     public List<PropertyResponseDTO> getRecommendedProperties(Long userId) {
         String key = "user:" + userId + ":recommend:properties";
@@ -235,10 +236,26 @@ public class RedisRecommendationService {
         System.out.println("RESULT SIZE = " + result.size());
         System.out.println("COMBINED SIZE = " + combined.size());
 
-        return finalRankingService.rankProperties(
+        List<PropertyResponseDTO> ranked = finalRankingService.rankProperties(
                 combined,
                 preferredDistrict,
                 profile);
+
+        for (PropertyResponseDTO item : ranked) {
+            String source = sourceAnalyticsService.detectPrimarySource(item.getReasons());
+
+            item.setPrimarySource(source);
+
+            if (item.getId() != null) {
+                sourceAnalyticsService.trackImpression(
+                        userId,
+                        item.getId(),
+                        "property",
+                        source);
+            }
+        }
+
+        return ranked;
     }
 
     private void boostFollowedOwnersForProperties(
@@ -412,10 +429,26 @@ public class RedisRecommendationService {
 
         UserInterestProfile profile = userInterestProfileService.getProfile(userId);
 
-        return finalRankingService.rankReels(
+        List<PropertyReelResponseDTO> ranked = finalRankingService.rankReels(
                 combined,
                 preferredDistrict,
                 profile);
+
+        for (PropertyReelResponseDTO item : ranked) {
+            String source = sourceAnalyticsService.detectPrimarySource(item.getReasons());
+
+            item.setPrimarySource(source);
+
+            if (item.getId() != null) {
+                sourceAnalyticsService.trackImpression(
+                        userId,
+                        item.getId(),
+                        "reel",
+                        source);
+            }
+        }
+
+        return ranked;
     }
 
     private void boostFollowedOwnersForReels(
@@ -764,47 +797,46 @@ public class RedisRecommendationService {
             item.setReasons(reasons);
         }
     }
+
     private void boostOwnerAffinityForReels(
-        Long userId,
-        List<PropertyReelResponseDTO> items
-) {
-    if (userId == null || items == null || items.isEmpty()) {
-        return;
+            Long userId,
+            List<PropertyReelResponseDTO> items) {
+        if (userId == null || items == null || items.isEmpty()) {
+            return;
+        }
+
+        for (PropertyReelResponseDTO item : items) {
+            if (item.getOwnerId() == null) {
+                continue;
+            }
+
+            double affinity = ownerAffinityService.getAffinityScore(
+                    userId,
+                    item.getOwnerId());
+
+            if (affinity == 0) {
+                continue;
+            }
+
+            double currentScore = item.getScore() != null ? item.getScore() : 0.0;
+
+            double boost = Math.max(-1.0, Math.min(1.0, affinity * 0.3));
+
+            item.setScore(currentScore + boost);
+
+            List<String> reasons = item.getReasons() != null
+                    ? new ArrayList<>(item.getReasons())
+                    : new ArrayList<>();
+
+            if (boost > 0 && !reasons.contains("LIKED_OWNER")) {
+                reasons.add("LIKED_OWNER");
+            }
+
+            if (boost < 0 && !reasons.contains("LOW_RATED_OWNER")) {
+                reasons.add("LOW_RATED_OWNER");
+            }
+
+            item.setReasons(reasons);
+        }
     }
-
-    for (PropertyReelResponseDTO item : items) {
-        if (item.getOwnerId() == null) {
-            continue;
-        }
-
-        double affinity = ownerAffinityService.getAffinityScore(
-                userId,
-                item.getOwnerId()
-        );
-
-        if (affinity == 0) {
-            continue;
-        }
-
-        double currentScore = item.getScore() != null ? item.getScore() : 0.0;
-
-        double boost = Math.max(-1.0, Math.min(1.0, affinity * 0.3));
-
-        item.setScore(currentScore + boost);
-
-        List<String> reasons = item.getReasons() != null
-                ? new ArrayList<>(item.getReasons())
-                : new ArrayList<>();
-
-        if (boost > 0 && !reasons.contains("LIKED_OWNER")) {
-            reasons.add("LIKED_OWNER");
-        }
-
-        if (boost < 0 && !reasons.contains("LOW_RATED_OWNER")) {
-            reasons.add("LOW_RATED_OWNER");
-        }
-
-        item.setReasons(reasons);
-    }
-}
 }
