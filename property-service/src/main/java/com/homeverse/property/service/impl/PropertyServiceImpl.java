@@ -16,6 +16,8 @@ import com.homeverse.property.repository.AmenityRepository;
 import com.homeverse.property.repository.OwnerQuotaRepository;
 import com.homeverse.property.repository.ProjectRepository;
 import com.homeverse.property.repository.PromotionQueueRepository;
+import com.homeverse.common.dto.PropertyQuotaSyncEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.repository.OwnerProfileRepository;
@@ -58,6 +60,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final PromotionQueueRepository promotionQueueRepository;
     private final PropertyCommentRepository commentRepository;
     private final RecommendClient recommendClient;
+    private final KafkaTemplate<String, Object> objectKafkaTemplate;
     private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -80,6 +83,7 @@ public class PropertyServiceImpl implements PropertyService {
         }
         quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
         ownerQuotaRepository.save(quota);
+        sendQuotaSyncEvent(quota, "PROPERTY_CREATED_PENDING");
 
         String snapshotName = null;
         if (dto.getProjectId() != null) {
@@ -157,6 +161,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .build();
 
         Property savedProperty = propertyRepository.save(property);
+
         log.info("Created Property ID: {}", savedProperty.getId());
 
         return mapToResponse(savedProperty);
@@ -1002,12 +1007,29 @@ public class PropertyServiceImpl implements PropertyService {
                 )
                 .map(this::mapToResponse);
     }
+
     @Override
-@Transactional(readOnly = true)
-public List<PropertyResponseDTO> getAllActiveProperties() {
-    return propertyRepository.findByStatus(Property.Status.ACTIVE)
-            .stream()
-            .map(this::mapToResponse)
-            .toList();
-}
+    @Transactional(readOnly = true)
+    public List<PropertyResponseDTO> getAllActiveProperties() {
+        return propertyRepository.findByStatus(Property.Status.ACTIVE)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    private void sendQuotaSyncEvent(OwnerQuota quota, String reason) {
+        try {
+            PropertyQuotaSyncEvent event = PropertyQuotaSyncEvent.builder()
+                    .userId(quota.getOwnerId())
+                    .freePostsRemaining(quota.getFreePostsRemaining())
+                    .role(quota.getRole())
+                    .reason(reason)
+                    .build();
+
+            objectKafkaTemplate.send("property-quota-sync-topic", event);
+            log.info("Đã gửi quota sync sang identity: {}", event);
+        } catch (Exception e) {
+            log.error("Không thể gửi quota sync sang identity: {}", e.getMessage(), e);
+        }
+    }
 }

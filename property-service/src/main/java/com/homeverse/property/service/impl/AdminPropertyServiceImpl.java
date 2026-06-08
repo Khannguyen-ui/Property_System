@@ -28,6 +28,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.homeverse.common.dto.PropertyQuotaSyncEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,6 +48,7 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
     private final InteractionRepository interactionRepository;
     private final PropertyCommentRepository commentRepository;
     private final RecommendClient recommendClient;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     @Transactional(readOnly = true)
@@ -128,6 +131,7 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
 
                     quota.setFreePostsRemaining(quota.getFreePostsRemaining() - 1);
                     ownerQuotaRepository.save(quota);
+                    sendQuotaSyncEvent(quota, "PROPERTY_APPROVED_DEDUCT_LEGACY");
                     property.setQuotaDeducted(true);
                 }
 
@@ -179,6 +183,7 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
                     int currentQuota = quota.getFreePostsRemaining() != null ? quota.getFreePostsRemaining() : 0;
                     quota.setFreePostsRemaining(currentQuota + 1);
                     ownerQuotaRepository.save(quota);
+                    sendQuotaSyncEvent(quota, "PROPERTY_REJECTED_REFUND");
 
                     property.setQuotaDeducted(false);
                 }
@@ -444,5 +449,21 @@ public class AdminPropertyServiceImpl implements AdminPropertyService {
                         .categoryMatch(1)
                         .district(property.getDistrict())
                         .build());
+    }
+
+    private void sendQuotaSyncEvent(OwnerQuota quota, String reason) {
+        try {
+            PropertyQuotaSyncEvent event = PropertyQuotaSyncEvent.builder()
+                    .userId(quota.getOwnerId())
+                    .freePostsRemaining(quota.getFreePostsRemaining())
+                    .role(quota.getRole())
+                    .reason(reason)
+                    .build();
+
+            kafkaTemplate.send("property-quota-sync-topic", event);
+            log.info("Đã gửi quota sync sang identity: {}", event);
+        } catch (Exception e) {
+            log.error("Không thể gửi quota sync sang identity: {}", e.getMessage(), e);
+        }
     }
 }

@@ -1,10 +1,13 @@
 package com.homeverse.property.controller;
 
+
 import com.homeverse.common.dto.ApiResponse;
 import com.homeverse.property.dto.request.PropertyCreateDTO;
-import com.homeverse.property.dto.response.PropertyReelResponseDTO;
 import com.homeverse.property.dto.response.PropertyResponseDTO;
 import com.homeverse.property.service.PropertyService;
+import com.homeverse.property.dto.response.OwnerQuotaResponse;
+import com.homeverse.property.entity.OwnerQuota;
+import com.homeverse.property.repository.OwnerQuotaRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class PropertyController {
 
     private final PropertyService propertyService;
+    private final OwnerQuotaRepository ownerQuotaRepository;
 
     @PostMapping
     public ResponseEntity<PropertyResponseDTO> createProperty(
@@ -105,7 +109,25 @@ public class PropertyController {
 
         return ResponseEntity.ok().build();
     }
+    @GetMapping("/quota/me")
+    public ApiResponse<OwnerQuotaResponse> getMyQuota(Authentication authentication) {
+        Long ownerId = extractUserId(authentication);
 
+        OwnerQuota quota = ownerQuotaRepository.findById(ownerId)
+                .orElse(OwnerQuota.builder()
+                        .ownerId(ownerId)
+                        .freePostsRemaining(0)
+                        .role("USER")
+                        .build());
+
+        return ApiResponse.<OwnerQuotaResponse>builder()
+                .result(OwnerQuotaResponse.builder()
+                        .ownerId(quota.getOwnerId())
+                        .freePostsRemaining(quota.getFreePostsRemaining() == null ? 0 : quota.getFreePostsRemaining())
+                        .role(quota.getRole())
+                        .build())
+                .build();
+    }
 
 
     // ================== Helper method ==================

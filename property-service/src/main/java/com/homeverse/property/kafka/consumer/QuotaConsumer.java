@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.homeverse.common.dto.PropertyQuotaSyncEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -17,11 +19,12 @@ public class QuotaConsumer {
 
     private final OwnerQuotaRepository ownerQuotaRepository;
     private final ObjectMapper objectMapper;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @KafkaListener(topics = "payment-success-topic", groupId = "property-quota-group")
-    @Transactional // Đảm bảo tính nhất quán dữ liệu
+    @Transactional
     public void handleQuotaUpdate(String message) {
-        log.info("🏠 [PROPERTY-SERVICE] Nhận tin nhắn cập nhật Quota...");
+        log.info(" [PROPERTY-SERVICE] Nhận tin nhắn cập nhật Quota...");
         try {
             PaymentEvent event = objectMapper.readValue(message, PaymentEvent.class);
 
@@ -59,7 +62,7 @@ public class QuotaConsumer {
         // Ví dụ: Nếu gói có priorityLevel > 0 thì lên thẳng OWNER_VIP
         if (event.getPriorityLevel() != null && event.getPriorityLevel() > 0) {
             quota.setRole("OWNER");
-            log.info("💎 User {} đã được nâng cấp lên hạng VIP", event.getUserId());
+            log.info(" User {} đã được nâng cấp lên hạng VIP", event.getUserId());
         } else if ("USER".equals(quota.getRole())) {
             // Nếu là nạp lượt bình thường thì ít nhất cũng phải là OWNER để đăng bài
             quota.setRole("OWNER");
@@ -67,8 +70,25 @@ public class QuotaConsumer {
 
         // 4. Lưu lại Database
         ownerQuotaRepository.save(quota);
+        sendQuotaSyncEvent(quota, "MEMBERSHIP_PURCHASE");
 
-        log.info("✅ CẬP NHẬT THÀNH CÔNG: User {} | Cũ: {} | Thêm: {} | Mới: {} | Role: {}", 
+        log.info(" CẬP NHẬT THÀNH CÔNG: User {} | Cũ: {} | Thêm: {} | Mới: {} | Role: {}",
                 event.getUserId(), oldQuota, addedQuota, quota.getFreePostsRemaining(), quota.getRole());
+    }
+
+    private void sendQuotaSyncEvent(OwnerQuota quota, String reason) {
+        try {
+            PropertyQuotaSyncEvent event = PropertyQuotaSyncEvent.builder()
+                    .userId(quota.getOwnerId())
+                    .freePostsRemaining(quota.getFreePostsRemaining())
+                    .role(quota.getRole())
+                    .reason(reason)
+                    .build();
+
+            kafkaTemplate.send("property-quota-sync-topic", event);
+            log.info("Đã gửi quota sync sang identity: {}", event);
+        } catch (Exception e) {
+            log.error("Không thể gửi quota sync sang identity: {}", e.getMessage(), e);
+        }
     }
 }

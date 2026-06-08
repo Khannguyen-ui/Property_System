@@ -33,23 +33,48 @@ public class IdentityCdcConsumer {
             if (afterNode.isMissingNode() || afterNode.isNull()) return;
 
             Long ownerId = afterNode.path("id").asLong();
-            Integer freePosts = afterNode.path("free_posts_remaining").asInt(0);
-            String role = afterNode.path("role").asText("");
+            String role = afterNode.path("role").asText("USER");
 
-            if ("c".equals(operation) || "r".equals(operation) || "u".equals(operation)) {
-
-
-                OwnerQuota quota = quotaRepository.findById(ownerId)
-                        .orElse(new OwnerQuota(ownerId, freePosts, role));
-
-                quota.setFreePostsRemaining(freePosts);
-                quota.setRole(role);
-                quotaRepository.save(quota);
-
-                log.info("CDC Synced: Owner ID {} hiện có {} lượt đăng", ownerId, freePosts);
+            if (!"c".equals(operation) && !"r".equals(operation) && !"u".equals(operation)) {
+                return;
             }
+
+            OwnerQuota quota = quotaRepository.findById(ownerId)
+                    .orElseGet(() -> OwnerQuota.builder()
+                            .ownerId(ownerId)
+                            .freePostsRemaining(0)
+                            .role(role)
+                            .build());
+
+            if (quota.getRole() == null || quota.getRole().isBlank() || isRoleUpgraded(role, quota.getRole())) {
+                quota.setRole(role);
+            }
+
+            quotaRepository.save(quota);
+
+            log.info(
+                    "CDC Identity synced user {} role={}, quota giữ nguyên={}",
+                    ownerId,
+                    quota.getRole(),
+                    quota.getFreePostsRemaining()
+            );
         } catch (Exception e) {
             log.error("Lỗi đồng bộ CDC từ Identity: {}", e.getMessage(), e);
         }
+    }
+
+    private boolean isRoleUpgraded(String incomingRole, String currentRole) {
+        if (incomingRole == null || incomingRole.isBlank()) return false;
+        if (currentRole == null || currentRole.isBlank()) return true;
+
+        if ("OWNER".equalsIgnoreCase(incomingRole) && "USER".equalsIgnoreCase(currentRole)) {
+            return true;
+        }
+
+        if ("ADMIN".equalsIgnoreCase(incomingRole)) {
+            return true;
+        }
+
+        return false;
     }
 }
