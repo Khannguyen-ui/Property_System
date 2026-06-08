@@ -1,14 +1,13 @@
 package com.homeverse.recommendation.client;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.recommendation.dto.OwnerRatingSummaryResponse;
 import com.homeverse.recommendation.dto.PropertyReelResponseDTO;
 import com.homeverse.recommendation.dto.PropertyResponseDTO;
-
 import java.util.List;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
-
 @FeignClient(name = "property-client", url = "${homeverse.services.property}")
 public interface PropertyClient {
     @GetMapping("/public/properties/all")
@@ -43,4 +42,7 @@ public interface PropertyClient {
 
     @GetMapping("/owners/following/{followerId}")
     List<Long> getFollowedOwnerIds(@PathVariable Long followerId);
+
+    @GetMapping("/owners/reviews/{ownerId}/summary")
+    OwnerRatingSummaryResponse getOwnerRatingSummary(@PathVariable Long ownerId);
 }

@@ -26,4 +26,10 @@ public class AnalyticsDashboardResponse {
     private String topItemType;
 
     private String topAction;
+    private Double ctr;
+
+    private Double contactRate;
+    private Double likeRate;
+
+    private Double saveRate;
 }
