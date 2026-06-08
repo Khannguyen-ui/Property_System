@@ -2,7 +2,9 @@ package com.homeverse.payment.controller;
 
 import com.homeverse.payment.dto.response.AdminUserSubscriptionResponse;
 import com.homeverse.payment.entity.Transaction;
+import com.homeverse.payment.entity.UserSubscription;
 import com.homeverse.payment.repository.TransactionRepository;
+import com.homeverse.payment.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import java.util.List;
 public class TransactionController {
 
     private final TransactionRepository transactionRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     // Sửa lại: Lấy lịch sử theo userId truyền từ Frontend hoặc Token đã parse
     @GetMapping("/my-history/{userId}")
@@ -34,6 +37,7 @@ public class TransactionController {
         return ResponseEntity.ok(
                 transactionRepository.findAllByOrderByCreatedAtDesc());
     }
+
     @GetMapping("/admin/users/{userId}/subscriptions")
     public ResponseEntity<AdminUserSubscriptionResponse> getUserSubscriptions(
             @PathVariable Long userId
@@ -43,32 +47,24 @@ public class TransactionController {
 
         LocalDateTime now = LocalDateTime.now();
 
-        Transaction latestMembership = transactions.stream()
-                .filter(t -> "SUCCESS".equalsIgnoreCase(t.getStatus()))
-                .filter(t -> {
-                    String type = String.valueOf(t.getType()).toUpperCase();
-                    return type.contains("MEMBERSHIP")
-                            || type.contains("PACKAGE");
-                })
-                .max(Comparator.comparing(Transaction::getCreatedAt))
+        UserSubscription activeSubscription = userSubscriptionRepository
+                .findFirstByUserIdAndActiveTrueAndExpiresAtAfterOrderByExpiresAtDesc(userId, now)
                 .orElse(null);
 
         AdminUserSubscriptionResponse.MembershipInfo membership = null;
 
-        if (latestMembership != null) {
-            LocalDateTime estimatedExpiresAt =
-                    latestMembership.getCreatedAt() != null
-                            ? latestMembership.getCreatedAt().plusDays(30)
-                            : null;
-
+        if (activeSubscription != null) {
             membership = AdminUserSubscriptionResponse.MembershipInfo.builder()
-                    .packageName(extractPackageName(latestMembership.getDescription()))
-                    .packageType(latestMembership.getType())
-                    .amount(latestMembership.getAmount())
-                    .purchasedAt(latestMembership.getCreatedAt())
-                    .estimatedExpiresAt(estimatedExpiresAt)
-                    .active(estimatedExpiresAt != null && estimatedExpiresAt.isAfter(now))
-                    .sourceNote("Tạm tính từ giao dịch gần nhất. Nên bổ sung bảng user_subscriptions để chính xác tuyệt đối.")
+                    .subscriptionId(activeSubscription.getId())
+                    .packageId(activeSubscription.getPackageId())
+                    .packageName(activeSubscription.getPackageName())
+                    .packageType(activeSubscription.getPackageType())
+                    .amount(activeSubscription.getAmount())
+                    .startedAt(activeSubscription.getStartedAt())
+                    .expiresAt(activeSubscription.getExpiresAt())
+                    .active(activeSubscription.getExpiresAt() != null && activeSubscription.getExpiresAt().isAfter(now))
+                    .quotaLimit(activeSubscription.getQuotaLimit())
+                    .sourceNote("Dữ liệu lấy từ bảng user_subscriptions")
                     .build();
         }
 

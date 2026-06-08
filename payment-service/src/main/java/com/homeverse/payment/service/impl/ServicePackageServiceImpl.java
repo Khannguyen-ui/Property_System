@@ -7,9 +7,11 @@ import com.homeverse.payment.dto.PropertyResponseDTO;
 import com.homeverse.payment.entity.PackageType;
 import com.homeverse.payment.entity.ServicePackage;
 import com.homeverse.payment.entity.Transaction;
+import com.homeverse.payment.entity.UserSubscription;
 import com.homeverse.payment.kafka.PaymentProducer;
 import com.homeverse.payment.repository.ServicePackageRepository;
 import com.homeverse.payment.repository.TransactionRepository;
+import com.homeverse.payment.repository.UserSubscriptionRepository;
 import com.homeverse.payment.service.ServicePackageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     private final PaymentProducer paymentProducer;
     private final WalletClient walletClient;
     private final PropertyClient propertyClient;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     @Override
     @Transactional
@@ -55,6 +58,32 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                     .build();
 
             Transaction savedTrans = transactionRepository.save(trans);
+            LocalDateTime now = LocalDateTime.now();
+
+            int durationDays = pkg.getDurationDays() != null ? pkg.getDurationDays() : 0;
+
+            LocalDateTime baseStart = userSubscriptionRepository
+                    .findFirstByUserIdAndActiveTrueAndExpiresAtAfterOrderByExpiresAtDesc(userId, now)
+                    .map(UserSubscription::getExpiresAt)
+                    .filter(expiresAt -> expiresAt.isAfter(now))
+                    .orElse(now);
+
+            LocalDateTime expiresAt = baseStart.plusDays(durationDays);
+
+            UserSubscription subscription = UserSubscription.builder()
+                    .userId(userId)
+                    .packageId(pkg.getId())
+                    .packageName(pkg.getName())
+                    .packageType(PackageType.MEMBERSHIP.toString())
+                    .amount(pkg.getPrice())
+                    .startedAt(baseStart)
+                    .expiresAt(expiresAt)
+                    .active(true)
+                    .sourceTransactionId(savedTrans.getId())
+                    .quotaLimit(pkg.getQuotaLimit() != null ? pkg.getQuotaLimit() : 0)
+                    .build();
+
+            userSubscriptionRepository.save(subscription);
 
             PaymentEvent event = PaymentEvent.builder()
                     .userId(userId)

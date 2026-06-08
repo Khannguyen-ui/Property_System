@@ -15,18 +15,22 @@ public class AdminUserSubscriptionResponse {
     private MembershipInfo membership;
     private List<PromotionInfo> activePromotions;
     private List<TransactionInfo> recentTransactions;
+    private List<MembershipInfo> subscriptionHistory;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MembershipInfo {
+        private Long subscriptionId;
+        private Long packageId;
         private String packageName;
         private String packageType;
         private BigDecimal amount;
-        private LocalDateTime purchasedAt;
-        private LocalDateTime estimatedExpiresAt;
+        private LocalDateTime startedAt;
+        private LocalDateTime expiresAt;
         private Boolean active;
+        private Integer quotaLimit;
         private String sourceNote;
     }
 
