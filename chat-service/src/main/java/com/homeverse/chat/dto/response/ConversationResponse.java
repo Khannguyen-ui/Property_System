@@ -12,12 +12,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ConversationResponse {
-    
+
     // ID của cuộc hội thoại trong MongoDB (Để FE gọi API lấy tin nhắn)
-    private String conversationId; 
+    private String conversationId;
 
     // ID của người đối diện (Partner ID)
-    private Long partnerId; 
+    private Long partnerId;
 
     // Thông tin hiển thị của người đối diện
     private String fullName;
@@ -30,4 +30,7 @@ public class ConversationResponse {
     // Trạng thái
     private boolean isOnline;
     private int unreadCount;
+    private Boolean online;
+
+    private String lastSeen;
 }

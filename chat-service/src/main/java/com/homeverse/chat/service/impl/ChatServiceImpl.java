@@ -35,16 +35,17 @@ public class ChatServiceImpl implements ChatService {
     private final UserServiceClient userServiceClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    private final ChatPresenceServiceImpl chatPresenceService;
 
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        
+
         if (auth == null || !(auth.getPrincipal() instanceof Jwt)) {
             throw new RuntimeException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng!");
         }
 
         Jwt jwt = (Jwt) auth.getPrincipal();
-        return jwt.getClaim("userId"); 
+        return jwt.getClaim("userId");
     }
 
     @Override
@@ -52,7 +53,7 @@ public class ChatServiceImpl implements ChatService {
         Long currentUserId = getCurrentUserId();
 
         Conversation conversation = conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
-                        currentUserId, dto.getReceiverId(), dto.getReceiverId(), currentUserId)
+                currentUserId, dto.getReceiverId(), dto.getReceiverId(), currentUserId)
                 .orElseGet(() -> {
                     Conversation newConv = Conversation.builder()
                             .user1Id(currentUserId)
@@ -64,7 +65,17 @@ public class ChatServiceImpl implements ChatService {
                 });
 
         conversation.setLastMessage(dto.getContent());
+        conversation.setLastMessageSenderId(currentUserId);
         conversation.setUpdatedAt(LocalDateTime.now());
+
+        if (conversation.getUser1Id().equals(dto.getReceiverId())) {
+            conversation.setUser1Unread(
+                    conversation.getUser1Unread() == null ? 1 : conversation.getUser1Unread() + 1);
+        } else {
+            conversation.setUser2Unread(
+                    conversation.getUser2Unread() == null ? 1 : conversation.getUser2Unread() + 1);
+        }
+
         conversationRepository.save(conversation);
 
         Message message = Message.builder()
@@ -76,19 +87,19 @@ public class ChatServiceImpl implements ChatService {
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        
+
         Message savedMessage = messageRepository.save(message);
         ChatMessageResponse response = chatMapper.toResponse(savedMessage);
 
         try {
             messagingTemplate.convertAndSendToUser(
-                    dto.getReceiverId().toString(), 
-                    "/queue/messages", 
+                    dto.getReceiverId().toString(),
+                    "/queue/messages",
                     response);
-            
+
             messagingTemplate.convertAndSendToUser(
-                    currentUserId.toString(), 
-                    "/queue/messages", 
+                    currentUserId.toString(),
+                    "/queue/messages",
                     response);
         } catch (Exception e) {
             log.error("WebSocket error: ", e);
@@ -114,7 +125,7 @@ public class ChatServiceImpl implements ChatService {
     public List<ChatMessageResponse> getChatHistory(Long partnerId) {
         Long currentUserId = getCurrentUserId();
         return conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
-                        currentUserId, partnerId, partnerId, currentUserId)
+                currentUserId, partnerId, partnerId, currentUserId)
                 .map(conv -> messageRepository.findByConversationIdOrderByCreatedAtAsc(conv.getId())
                         .stream()
                         .map(chatMapper::toResponse)
@@ -125,11 +136,14 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public List<ConversationResponse> getUserConversations() {
         Long currentUserId = getCurrentUserId();
-        List<Conversation> conversations = conversationRepository.findByUser1IdOrUser2IdOrderByUpdatedAtDesc(currentUserId, currentUserId);
+        List<Conversation> conversations = conversationRepository
+                .findByUser1IdOrUser2IdOrderByUpdatedAtDesc(currentUserId, currentUserId);
 
         return conversations.stream().map(c -> {
             Long partnerId = c.getUser1Id().equals(currentUserId) ? c.getUser2Id() : c.getUser1Id();
-            long unreadCount = messageRepository.countByConversationIdAndIsReadFalseAndSenderIdNot(c.getId(), currentUserId);
+            int unreadCount = c.getUser1Id().equals(currentUserId)
+                    ? (c.getUser1Unread() == null ? 0 : c.getUser1Unread())
+                    : (c.getUser2Unread() == null ? 0 : c.getUser2Unread());
 
             String partnerName = "User " + partnerId;
             String partnerAvatar = null;
@@ -148,8 +162,11 @@ public class ChatServiceImpl implements ChatService {
                     .avatar(partnerAvatar)
                     .lastMessage(c.getLastMessage())
                     .lastTime(c.getUpdatedAt())
-                    .unreadCount((int) unreadCount)
+                    .unreadCount(unreadCount)
+                    .online(chatPresenceService.isOnline(partnerId))
+                    .lastSeen(chatPresenceService.getLastSeen(partnerId))
                     .build();
+
         }).collect(Collectors.toList());
     }
 
@@ -157,11 +174,14 @@ public class ChatServiceImpl implements ChatService {
     public void createConversationIfNotExists(Long partnerId) {
         Long currentUserId = getCurrentUserId();
         conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
-                        currentUserId, partnerId, partnerId, currentUserId)
+                currentUserId, partnerId, partnerId, currentUserId)
                 .orElseGet(() -> conversationRepository.save(Conversation.builder()
                         .user1Id(currentUserId)
                         .user2Id(partnerId)
                         .lastMessage("Bắt đầu trò chuyện")
+                        .lastMessageSenderId(currentUserId)
+                        .user1Unread(0)
+                        .user2Unread(0)
                         .updatedAt(LocalDateTime.now())
                         .build()));
     }
@@ -169,12 +189,46 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void markAsRead(Long partnerId) {
         Long currentUserId = getCurrentUserId();
-        conversationRepository.findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
-                        currentUserId, partnerId, partnerId, currentUserId)
+
+        conversationRepository
+                .findByUser1IdAndUser2IdOrUser1IdAndUser2Id(
+                        currentUserId,
+                        partnerId,
+                        partnerId,
+                        currentUserId)
                 .ifPresent(conv -> {
-                    List<Message> unread = messageRepository.findByConversationIdAndSenderIdNotAndIsReadFalse(conv.getId(), currentUserId);
-                    unread.forEach(m -> m.setRead(true));
+
+                    LocalDateTime now = LocalDateTime.now();
+
+                    List<Message> unread = messageRepository
+                            .findByConversationIdAndReceiverIdAndIsReadFalse(
+                                    conv.getId(),
+                                    currentUserId);
+
+                    unread.forEach(m -> {
+                        m.setRead(true);
+                        m.setReadAt(now);
+                    });
+
                     messageRepository.saveAll(unread);
+
+                    if (conv.getUser1Id().equals(currentUserId)) {
+                        conv.setUser1Unread(0);
+                        conv.setUser1LastReadAt(now);
+                    } else {
+                        conv.setUser2Unread(0);
+                        conv.setUser2LastReadAt(now);
+                    }
+
+                    conversationRepository.save(conv);
+
+                    messagingTemplate.convertAndSendToUser(
+                            partnerId.toString(),
+                            "/queue/read-receipts",
+                            java.util.Map.of(
+                                    "conversationId", conv.getId(),
+                                    "readBy", currentUserId,
+                                    "readAt", now.toString()));
                 });
     }
 }

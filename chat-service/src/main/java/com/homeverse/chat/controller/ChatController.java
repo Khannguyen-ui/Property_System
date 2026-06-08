@@ -2,8 +2,10 @@ package com.homeverse.chat.controller;
 
 import com.homeverse.chat.dto.ai.AiChatRequest;
 import com.homeverse.chat.dto.request.ChatMessageDTO;
+import com.homeverse.chat.dto.request.TypingEvent;
 import com.homeverse.chat.dto.response.ChatMessageResponse;
 import com.homeverse.chat.dto.response.ConversationResponse;
+import com.homeverse.chat.service.impl.ChatPresenceServiceImpl;
 import com.homeverse.chat.service.ChatService; // Import Interface
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,7 @@ public class ChatController {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatService chatService;
     private final AiRequestProducer aiRequestProducer;
+    private final ChatPresenceServiceImpl chatPresenceService;
 
     // ========================================================================
     // 1. WEBSOCKET HANDLER
@@ -39,14 +42,12 @@ public class ChatController {
         // Gửi real-time cho người nhận
         messagingTemplate.convertAndSend(
                 "/topic/user/" + chatMessage.getReceiverId(),
-                response
-        );
-        
+                response);
+
         // Gửi ngược lại cho chính người gửi để họ xác nhận tin nhắn đã lên server
         messagingTemplate.convertAndSend(
                 "/topic/user/" + chatMessage.getSenderId(),
-                response
-        );
+                response);
     }
 
     // ========================================================================
@@ -65,8 +66,7 @@ public class ChatController {
         // Vẫn bắn Socket để người kia nhận được ngay (Hybrid)
         messagingTemplate.convertAndSend(
                 "/topic/user/" + dto.getReceiverId(),
-                response
-        );
+                response);
 
         return ResponseEntity.ok(response);
     }
@@ -89,6 +89,7 @@ public class ChatController {
         chatService.markAsRead(partnerId);
         return ResponseEntity.ok().build();
     }
+
     @PostMapping("/test-ai-flow")
     public ResponseEntity<String> testAiFlowFromPostman(@RequestBody AiChatRequest request, Principal principal) {
         // 1. Chặn cửa nếu Postman không gửi JWT Token
@@ -100,14 +101,14 @@ public class ChatController {
         String currentUserId = principal.getName();
         request.setUserId(currentUserId);
 
-        if(request.getConversationId() == null || request.getConversationId().isEmpty()) {
+        if (request.getConversationId() == null || request.getConversationId().isEmpty()) {
             request.setConversationId("conv-postman-test");
         }
 
-
         aiRequestProducer.sendAiRequest(currentUserId, request);
 
-        return ResponseEntity.ok("🚀 Đã ném câu hỏi của User [" + currentUserId + "] vào Kafka! Sếp mở log Docker ra xem AI Worker chạy nhé.");
+        return ResponseEntity.ok("🚀 Đã ném câu hỏi của User [" + currentUserId
+                + "] vào Kafka! Sếp mở log Docker ra xem AI Worker chạy nhé.");
     }
 
     @MessageMapping("/ai-chat")
@@ -125,12 +126,51 @@ public class ChatController {
         aiRequest.setUserId(currentUserId);
 
         // 3. Khôi phục logic Conversation ID (Tránh Redis bị ngáo)
-        if(aiRequest.getConversationId() == null || aiRequest.getConversationId().isEmpty()) {
+        if (aiRequest.getConversationId() == null || aiRequest.getConversationId().isEmpty()) {
             // Tự động sinh ra 1 ID hội thoại mặc định cho user này nếu FE quên gửi
             aiRequest.setConversationId("conv-" + currentUserId);
         }
 
         // 4. Bắn vào Kafka
         aiRequestProducer.sendAiRequest(currentUserId, aiRequest);
+    }
+
+    @MessageMapping("/chat.typing")
+    public void typing(@Payload TypingEvent event) {
+          System.out.println("TYPING EVENT = " + event);
+        messagingTemplate.convertAndSendToUser(
+                event.getReceiverId().toString(),
+                "/queue/typing",
+                event);
+    }
+
+    @PostMapping("/presence/online")
+public ResponseEntity<Void> markOnline(
+        @RequestHeader("X-User-Id") Long userId
+) {
+    System.out.println("CALL MARK ONLINE USER = " + userId);
+
+    chatPresenceService.markOnline(userId);
+
+    return ResponseEntity.ok().build();
+}
+
+    @PostMapping("/presence/offline")
+    public ResponseEntity<Void> markOffline(@RequestHeader("X-User-Id") Long userId) {
+        chatPresenceService.markOffline(userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/presence/{userId}")
+    public ResponseEntity<Map<String, Object>> getPresence(@PathVariable Long userId) {
+
+        String lastSeen = chatPresenceService.getLastSeen(userId);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("userId", userId);
+        result.put("online", chatPresenceService.isOnline(userId));
+        result.put("lastSeen", lastSeen != null ? lastSeen : "");
+
+        return ResponseEntity.ok(result);
     }
 }

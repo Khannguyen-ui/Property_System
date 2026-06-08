@@ -16,4 +16,5 @@ public interface ChatService {
     void createConversationIfNotExists(Long partnerId);
 
     void markAsRead(Long partnerId);
+    
 }

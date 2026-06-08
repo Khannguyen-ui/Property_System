@@ -26,6 +26,24 @@ public class Conversation {
     @Field("last_message")
     private String lastMessage;
 
+    @Field("last_message_sender_id")
+    private Long lastMessageSenderId;
+
+    @Field("user1_unread")
+    @Builder.Default
+    private Integer user1Unread = 0;
+
+    @Field("user2_unread")
+    @Builder.Default
+    private Integer user2Unread = 0;
+
+    @Field("user1_last_read_at")
+    private LocalDateTime user1LastReadAt;
+
+    @Field("user2_last_read_at")
+    private LocalDateTime user2LastReadAt;
+
     @Field("updated_at")
+    @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

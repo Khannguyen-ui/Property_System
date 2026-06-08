@@ -33,6 +33,9 @@ public class Message {
     @Field("is_read")
     private boolean isRead = false;
 
+    @Field("read_at")
+    private LocalDateTime readAt;
+
     @Field("created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 }
