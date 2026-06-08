@@ -38,9 +38,10 @@ public class ProjectServiceImpl implements ProjectService {
         Project project = Project.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
+                .imageUrl(cleanImageUrl(dto.getImageUrl()))
                 .address(dto.getAddress().trim())
                 .location(point)
-                // SỬA ĐỔI 1: Tự động xóa khoảng trắng và viết hoa
+
                 .projectType(Project.ProjectType.valueOf(dto.getProjectType().trim().toUpperCase()))
                 .amenities(dto.getAmenities())
                 .createdBy(adminId)
@@ -64,9 +65,9 @@ public class ProjectServiceImpl implements ProjectService {
 
         project.setName(dto.getName().trim());
         project.setDescription(dto.getDescription());
+        project.setImageUrl(cleanImageUrl(dto.getImageUrl()));
         project.setAddress(dto.getAddress().trim());
 
-        // SỬA ĐỔI 2: Tự động xóa khoảng trắng và viết hoa
         project.setProjectType(Project.ProjectType.valueOf(dto.getProjectType().trim().toUpperCase()));
         project.setAmenities(dto.getAmenities());
         project.setLocation(point);
@@ -172,6 +173,7 @@ public class ProjectServiceImpl implements ProjectService {
         dto.setId(project.getId());
         dto.setName(project.getName());
         dto.setDescription(project.getDescription());
+        dto.setImageUrl(project.getImageUrl());
         dto.setAddress(project.getAddress());
 
         if (project.getLocation() != null) {
@@ -191,5 +193,11 @@ public class ProjectServiceImpl implements ProjectService {
         dto.setCreatedAt(project.getCreatedAt());
 
         return dto;
+    }
+    private String cleanImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return null;
+        }
+        return imageUrl.trim();
     }
 }

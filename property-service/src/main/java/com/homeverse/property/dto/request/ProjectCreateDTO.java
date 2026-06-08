@@ -25,4 +25,6 @@ public class ProjectCreateDTO {
     private String projectType;
 
     private List<String> amenities;
+
+    private String imageUrl;
 }

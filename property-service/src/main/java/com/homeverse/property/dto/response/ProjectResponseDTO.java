@@ -14,6 +14,8 @@ public class ProjectResponseDTO {
     private Double latitude;
     private Double longitude;
 
+    private String imageUrl;
+
     private String projectType;
     private List<String> amenities;
 

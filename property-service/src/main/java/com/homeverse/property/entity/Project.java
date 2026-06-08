@@ -44,6 +44,9 @@ public class Project {
     @Column(columnDefinition = "jsonb")
     private List<String> amenities;
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
