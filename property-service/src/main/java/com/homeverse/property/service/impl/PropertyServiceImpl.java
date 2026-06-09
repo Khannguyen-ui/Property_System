@@ -66,6 +66,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
     private final PropertyContactRepository propertyContactRepository;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PropertyResponseDTO createProperty(Long ownerId, PropertyCreateDTO dto) {
@@ -781,6 +782,8 @@ public class PropertyServiceImpl implements PropertyService {
                 .get("property:" + propertyId + ":comments");
         String contactStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":contacts");
+        String shareStr = redisTemplate.opsForValue()
+        .get("property:" + propertyId + ":shares");
 
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
@@ -793,7 +796,10 @@ public class PropertyServiceImpl implements PropertyService {
                 contactStr != null
                         ? Long.parseLong(contactStr)
                         : 0L);
-
+        dto.setShareCount(
+        shareStr != null
+                ? Long.parseLong(shareStr)
+                : 0L);
         dto.setIsLiked(false);
         dto.setIsSaved(false);
 
@@ -830,6 +836,8 @@ public class PropertyServiceImpl implements PropertyService {
                 .get("property:" + propertyId + ":comments");
         String contactStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":contacts");
+        String shareStr = redisTemplate.opsForValue()
+                .get("property:" + propertyId + ":shares");
         Long likeCount = likeStr != null
                 ? Long.parseLong(likeStr)
                 : interactionRepository.countByPropertyIdAndInteractionType(
@@ -848,6 +856,10 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setContactCount(
                 contactStr != null
                         ? Long.parseLong(contactStr)
+                        : 0L);
+        dto.setShareCount(
+                shareStr != null
+                        ? Long.parseLong(shareStr)
                         : 0L);
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)

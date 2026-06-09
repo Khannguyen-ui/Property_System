@@ -42,7 +42,7 @@ public class PropertyResponseDTO {
     private Boolean isLiked;
     private Boolean isSaved;
     private boolean isQuotaDeducted;
-
+    private Long shareCount;
     private String status;
     private Long ownerId;
     private String ownerNameSnapshot;

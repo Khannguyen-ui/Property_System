@@ -31,4 +31,5 @@ public class PropertyResponseDTO {
     private Long commentCount;
     private Long contactCount;
     private String primarySource;
+    private Long shareCount;
 }

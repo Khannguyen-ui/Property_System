@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -79,6 +80,7 @@ public class RedisRecommendationService {
                                 .saveCount(property.getSaveCount())
                                 .viewCount(property.getViewCount())
                                 .contactCount(property.getContactCount())
+                                .shareCount(property.getShareCount())
                                 .isLiked(property.getIsLiked())
                                 .isSaved(property.getIsSaved())
                                 .commentCount(property.getCommentCount())
@@ -136,6 +138,7 @@ public class RedisRecommendationService {
                                 .viewCount(reel.getViewCount())
                                 .commentCount(reel.getCommentCount())
                                 .contactCount(reel.getContactCount())
+                                .shareCount(reel.getShareCount())
                                 .ownerSlug(reel.getOwnerSlug())
                                 .ownerNameSnapshot(reel.getOwnerNameSnapshot())
                                 .ownerAvatarSnapshot(reel.getOwnerAvatarSnapshot())
@@ -242,16 +245,33 @@ public class RedisRecommendationService {
                 profile);
 
         for (PropertyResponseDTO item : ranked) {
-            String source = sourceAnalyticsService.detectPrimarySource(item.getReasons());
+
+            String source = sourceAnalyticsService.detectPrimarySource(
+                    item.getReasons());
 
             item.setPrimarySource(source);
 
             if (item.getId() != null) {
-                sourceAnalyticsService.trackImpression(
-                        userId,
-                        item.getId(),
-                        "property",
-                        source);
+
+                String key = "impression:"
+                        + userId
+                        + ":property:"
+                        + item.getId();
+
+                Boolean first = redisTemplate.opsForValue()
+                        .setIfAbsent(
+                                key,
+                                "1",
+                                Duration.ofHours(1));
+
+                if (Boolean.TRUE.equals(first)) {
+
+                    sourceAnalyticsService.trackImpression(
+                            userId,
+                            item.getId(),
+                            "property",
+                            source);
+                }
             }
         }
 
@@ -435,16 +455,33 @@ public class RedisRecommendationService {
                 profile);
 
         for (PropertyReelResponseDTO item : ranked) {
-            String source = sourceAnalyticsService.detectPrimarySource(item.getReasons());
+
+            String source = sourceAnalyticsService.detectPrimarySource(
+                    item.getReasons());
 
             item.setPrimarySource(source);
 
             if (item.getId() != null) {
-                sourceAnalyticsService.trackImpression(
-                        userId,
-                        item.getId(),
-                        "reel",
-                        source);
+
+                String key = "impression:"
+                        + userId
+                        + ":reel:"
+                        + item.getId();
+
+                Boolean first = redisTemplate.opsForValue()
+                        .setIfAbsent(
+                                key,
+                                "1",
+                                Duration.ofHours(1));
+
+                if (Boolean.TRUE.equals(first)) {
+
+                    sourceAnalyticsService.trackImpression(
+                            userId,
+                            item.getId(),
+                            "reel",
+                            source);
+                }
             }
         }
 

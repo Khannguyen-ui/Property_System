@@ -70,22 +70,21 @@ public class InteractionController {
         return ResponseEntity.ok(interactionService.getLikedProperties(userId, guestId, page, size));
     }
 
- @PostMapping("/{id}/view")
-public ResponseEntity<String> trackView(
-        Authentication authentication,
-        @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
-        @PathVariable Long id
-) {
-    Long userId = extractUserId(authentication);
+    @PostMapping("/{id}/view")
+    public ResponseEntity<String> trackView(
+            Authentication authentication,
+            @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
+            @PathVariable Long id) {
+        Long userId = extractUserId(authentication);
 
-    interactionService.trackView(userId, guestId, id);
+        interactionService.trackView(userId, guestId, id);
 
-    if (userId != null) {
-        trackInteraction(userId, id, "VIEW");
+        if (userId != null) {
+            trackInteraction(userId, id, "VIEW");
+        }
+
+        return ResponseEntity.ok("View tracked");
     }
-
-    return ResponseEntity.ok("View tracked");
-}
 
     @GetMapping("/me/saved")
     public ResponseEntity<Page<InteractionPropertyDTO>> getMySavedProperties(
@@ -159,5 +158,13 @@ public ResponseEntity<String> trackView(
         if (userId == null && (guestId == null || guestId.trim().isEmpty())) {
             throw new IllegalArgumentException("Yêu cầu đăng nhập hoặc truyền X-Guest-Id qua Header");
         }
+    }
+
+    @PostMapping("/{propertyId}/share")
+    public ResponseEntity<Void> shareProperty(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long propertyId) {
+        interactionService.shareProperty(userId, propertyId);
+        return ResponseEntity.ok().build();
     }
 }

@@ -11,7 +11,7 @@ public class PropertyReelResponseDTO {
     private BigDecimal price;
     private String address;
     private String videoUrl;
-
+    private Long shareCount;
     private boolean isLiked;
     private boolean isSaved;
     private Long saveCount;

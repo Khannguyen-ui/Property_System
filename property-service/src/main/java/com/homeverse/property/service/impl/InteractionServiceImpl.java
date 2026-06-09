@@ -1,10 +1,13 @@
 package com.homeverse.property.service.impl;
 
+import com.homeverse.property.config.RecommendClient;
+import com.homeverse.property.dto.request.TrackEventRequest;
 import com.homeverse.property.dto.response.InteractionPropertyDTO;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.entity.UserPropertyInteraction;
 import com.homeverse.property.entity.UserPropertyInteraction.InteractionType;
 import com.homeverse.property.repository.InteractionRepository;
+import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.service.InteractionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,6 +27,8 @@ public class InteractionServiceImpl implements InteractionService {
 
     private final InteractionRepository interactionRepository;
     private final StringRedisTemplate redisTemplate;
+    private final RecommendClient recommendClient;
+    private final PropertyRepository propertyRepository;
 
     @Override
     @Transactional
@@ -124,16 +130,50 @@ public class InteractionServiceImpl implements InteractionService {
                 .findFirst()
                 .orElse(null);
     }
+
     public void trackView(Long userId, String guestId, Long propertyId) {
 
-    redisTemplate.opsForValue()
-            .increment("property:" + propertyId + ":views");
+        redisTemplate.opsForValue()
+                .increment("property:" + propertyId + ":views");
 
-    log.info(
-            "View tracked: property={}, user={}, guest={}",
-            propertyId,
-            userId,
-            guestId
-    );
-}
+        log.info(
+                "View tracked: property={}, user={}, guest={}",
+                propertyId,
+                userId,
+                guestId);
+    }
+
+    @Override
+    public void shareProperty(Long userId, Long propertyId) {
+
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài đăng"));
+
+        redisTemplate.opsForValue()
+                .increment("property:" + propertyId + ":shares");
+
+        recommendClient.track(
+                TrackEventRequest.builder()
+                        .userId(userId)
+                        .itemId(propertyId)
+                        .itemType(
+                                property.getVideoUrl() != null
+                                        ? "reel"
+                                        : "property")
+                        .action("SHARE")
+                        .watchTime(0.0)
+                        .duration(1.0)
+                        .price(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .userBudget(
+                                property.getPrice() != null
+                                        ? property.getPrice().doubleValue()
+                                        : 0.0)
+                        .locationMatch(1)
+                        .categoryMatch(1)
+                        .district(property.getDistrict())
+                        .build());
+    }
 }
