@@ -783,7 +783,7 @@ public class PropertyServiceImpl implements PropertyService {
         String contactStr = redisTemplate.opsForValue()
                 .get("property:" + propertyId + ":contacts");
         String shareStr = redisTemplate.opsForValue()
-        .get("property:" + propertyId + ":shares");
+                .get("property:" + propertyId + ":shares");
 
         Long commentCount = commentStr != null
                 ? Long.parseLong(commentStr)
@@ -797,9 +797,9 @@ public class PropertyServiceImpl implements PropertyService {
                         ? Long.parseLong(contactStr)
                         : 0L);
         dto.setShareCount(
-        shareStr != null
-                ? Long.parseLong(shareStr)
-                : 0L);
+                shareStr != null
+                        ? Long.parseLong(shareStr)
+                        : 0L);
         dto.setIsLiked(false);
         dto.setIsSaved(false);
 
@@ -1049,5 +1049,32 @@ public class PropertyServiceImpl implements PropertyService {
         } catch (Exception e) {
             log.error("Không thể gửi quota sync sang identity: {}", e.getMessage(), e);
         }
+    }
+
+    @Override
+    public List<PropertyResponseDTO> getSimilarProperties(Long propertyId) {
+        Property current = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bài đăng"));
+
+        List<Property> similar = propertyRepository.findSimilarProperties(
+                current.getId(),
+                Property.Status.ACTIVE,
+                current.getPropertyType(),
+                current.getDistrict(),
+                current.getPrice(),
+                PageRequest.of(0, 8));
+
+        if (similar.isEmpty()) {
+            similar = propertyRepository.findSimilarPropertiesFallback(
+                    current.getId(),
+                    Property.Status.ACTIVE,
+                    current.getDistrict(),
+                    current.getPrice(),
+                    PageRequest.of(0, 8));
+        }
+
+        return similar.stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 }

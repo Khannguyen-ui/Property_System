@@ -76,5 +76,5 @@ public interface PropertyService {
     );
 
     Page<PropertyResponseDTO> getPublicPropertiesByProject(Long projectId, int page, int size);
-    
+    List<PropertyResponseDTO> getSimilarProperties(Long propertyId);
 }

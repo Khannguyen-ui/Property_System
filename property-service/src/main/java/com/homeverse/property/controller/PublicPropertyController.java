@@ -33,6 +33,13 @@ public class PublicPropertyController {
         return ResponseEntity.ok(propertyService.getPublicProperties(page, size));
     }
 
+    @GetMapping("/{id}/similar")
+    public ResponseEntity<List<PropertyResponseDTO>> getSimilarProperties(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(
+                propertyService.getSimilarProperties(id));
+    }
+
     @GetMapping("/all")
     public ResponseEntity<List<PropertyResponseDTO>> getAllActiveProperties() {
         return ResponseEntity.ok(propertyService.getAllActiveProperties());
@@ -137,12 +144,12 @@ public class PublicPropertyController {
                 .result(propertyService.getPropertiesByOwnerId(ownerId, page, size, transactionType))
                 .build();
     }
+
     @GetMapping("/by-project/{projectId}")
     public ResponseEntity<Page<PropertyResponseDTO>> getPublicPropertiesByProject(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size
-    ) {
+            @RequestParam(defaultValue = "12") int size) {
         return ResponseEntity.ok(propertyService.getPublicPropertiesByProject(projectId, page, size));
     }
 

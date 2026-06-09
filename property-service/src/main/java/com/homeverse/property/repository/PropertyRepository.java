@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -18,249 +18,261 @@ import java.util.Optional;
 @Repository
 public interface PropertyRepository extends JpaRepository<Property, Long> {
 
-    Optional<Property> findByIdAndStatus(Long id, Property.Status status);
+        Optional<Property> findByIdAndStatus(Long id, Property.Status status);
 
-    Page<Property> findByStatus(Property.Status status, Pageable pageable);
+        Page<Property> findByStatus(Property.Status status, Pageable pageable);
 
-    Page<Property> findByStatusAndExpiresAtAfter(
-            Property.Status status,
-            LocalDateTime now,
-            Pageable pageable
-    );
+        Page<Property> findByStatusAndExpiresAtAfter(
+                        Property.Status status,
+                        LocalDateTime now,
+                        Pageable pageable);
 
-    Optional<Property> findByIdAndStatusAndExpiresAtAfter(
-            Long id,
-            Property.Status status,
-            LocalDateTime now
-    );
+        Optional<Property> findByIdAndStatusAndExpiresAtAfter(
+                        Long id,
+                        Property.Status status,
+                        LocalDateTime now);
 
-    List<Property> findByStatusAndExpiresAtBefore(
-            Property.Status status,
-            LocalDateTime now
-    );
+        List<Property> findByStatusAndExpiresAtBefore(
+                        Property.Status status,
+                        LocalDateTime now);
 
+        Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.Status status,
+                        Pageable pageable);
 
-    Page<Property> findByOwnerIdAndStatusOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.Status status,
-            Pageable pageable
-    );
-    List<Property> findByStatus(Property.Status status);
-    Page<Property> findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.Status status,
-            Property.PropertyType propertyType,
-            Pageable pageable
-    );
+        List<Property> findByStatus(Property.Status status);
 
-    Page<Property> findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.Status status,
-            Property.TransactionType transactionType,
-            Pageable pageable
-    );
+        Page<Property> findByOwnerIdAndStatusAndPropertyTypeOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.Status status,
+                        Property.PropertyType propertyType,
+                        Pageable pageable);
 
-    Page<Property> findByOwnerIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.Status status,
-            LocalDateTime now,
-            Pageable pageable
-    );
+        Page<Property> findByOwnerIdAndStatusAndTransactionTypeOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.Status status,
+                        Property.TransactionType transactionType,
+                        Pageable pageable);
 
-    Page<Property> findByOwnerIdAndStatusAndTransactionTypeAndExpiresAtAfterOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.Status status,
-            Property.TransactionType transactionType,
-            LocalDateTime now,
-            Pageable pageable
-    );
+        Page<Property> findByOwnerIdAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.Status status,
+                        LocalDateTime now,
+                        Pageable pageable);
 
-    @Query(value = "SELECT * FROM properties WHERE id = :id AND status = 'DELETED'", nativeQuery = true)
-    Optional<Property> findDeletedById(@Param("id") Long id);
+        Page<Property> findByOwnerIdAndStatusAndTransactionTypeAndExpiresAtAfterOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.Status status,
+                        Property.TransactionType transactionType,
+                        LocalDateTime now,
+                        Pageable pageable);
 
-    @Query(
-            value = "SELECT * FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'",
-            countQuery = "SELECT count(*) FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'",
-            nativeQuery = true
-    )
-    Page<Property> findDeletedByOwnerId(
-            @Param("ownerId") Long ownerId,
-            Pageable pageable
-    );
+        @Query(value = "SELECT * FROM properties WHERE id = :id AND status = 'DELETED'", nativeQuery = true)
+        Optional<Property> findDeletedById(@Param("id") Long id);
 
-    @Query(
-            value = "SELECT * FROM properties WHERE status = 'DELETED'",
-            countQuery = "SELECT count(*) FROM properties WHERE status = 'DELETED'",
-            nativeQuery = true
-    )
-    Page<Property> findAllDeletedProperties(Pageable pageable);
+        @Query(value = "SELECT * FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'", countQuery = "SELECT count(*) FROM properties WHERE owner_id = :ownerId AND status = 'DELETED'", nativeQuery = true)
+        Page<Property> findDeletedByOwnerId(
+                        @Param("ownerId") Long ownerId,
+                        Pageable pageable);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = :id", nativeQuery = true)
-    void restoreById(@Param("id") Long id);
+        @Query(value = "SELECT * FROM properties WHERE status = 'DELETED'", countQuery = "SELECT count(*) FROM properties WHERE status = 'DELETED'", nativeQuery = true)
+        Page<Property> findAllDeletedProperties(Pageable pageable);
 
-    @Modifying
-    @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
-    int restoreByIdAdmin(Long id);
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = :id", nativeQuery = true)
+        void restoreById(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "DELETE FROM properties WHERE id = :id", nativeQuery = true)
-    void hardDeleteById(@Param("id") Long id);
+        @Modifying
+        @Query(value = "UPDATE properties SET status = 'PENDING' WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
+        int restoreByIdAdmin(Long id);
 
-    @Modifying
-    @Query(value = "DELETE FROM properties WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
-    int hardDeleteByIdAdmin(Long id);
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query(value = "DELETE FROM properties WHERE id = :id", nativeQuery = true)
+        void hardDeleteById(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "UPDATE properties SET project_id = NULL WHERE project_id = :projectId", nativeQuery = true)
-    void detachPropertiesFromProject(@Param("projectId") Long projectId);
+        @Modifying
+        @Query(value = "DELETE FROM properties WHERE id = ?1 AND status = 'DELETED'", nativeQuery = true)
+        int hardDeleteByIdAdmin(Long id);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            UPDATE Property p
-            SET p.ownerNameSnapshot = :name,
-                p.ownerAvatarSnapshot = :avatar,
-                p.ownerSlugSnapshot = :slug,
-                p.ownerPhoneSnapshot = :phone
-            WHERE p.ownerId = :ownerId
-            """)
-    void updateOwnerSnapshot(
-            @Param("ownerId") Long ownerId,
-            @Param("name") String name,
-            @Param("avatar") String avatar,
-            @Param("slug") String slug,
-            @Param("phone") String phone
-    );
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query(value = "UPDATE properties SET project_id = NULL WHERE project_id = :projectId", nativeQuery = true)
+        void detachPropertiesFromProject(@Param("projectId") Long projectId);
 
-    @Query("""
-            SELECT new com.homeverse.property.dto.response.PropertyTypeCountDTO(
-                p.propertyType,
-                COUNT(p)
-            )
-            FROM Property p
-            WHERE p.ownerId = :ownerId
-              AND p.status = :status
-            GROUP BY p.propertyType
-            """)
-    List<PropertyTypeCountDTO> countByOwnerIdAndStatusGroupByPropertyType(
-            @Param("ownerId") Long ownerId,
-            @Param("status") Property.Status status
-    );
+        @Modifying(clearAutomatically = true, flushAutomatically = true)
+        @Query("""
+                        UPDATE Property p
+                        SET p.ownerNameSnapshot = :name,
+                            p.ownerAvatarSnapshot = :avatar,
+                            p.ownerSlugSnapshot = :slug,
+                            p.ownerPhoneSnapshot = :phone
+                        WHERE p.ownerId = :ownerId
+                        """)
+        void updateOwnerSnapshot(
+                        @Param("ownerId") Long ownerId,
+                        @Param("name") String name,
+                        @Param("avatar") String avatar,
+                        @Param("slug") String slug,
+                        @Param("phone") String phone);
 
-    @Query(value = """
-            SELECT * FROM properties p
-            WHERE p.status = :status
-              AND p.video_url IS NOT NULL
-              AND p.video_url <> ''
-            ORDER BY p.created_at DESC, p.id DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<Property> findFirstReelsFeed(
-            @Param("status") String status,
-            @Param("limit") int limit
-    );
+        @Query("""
+                        SELECT new com.homeverse.property.dto.response.PropertyTypeCountDTO(
+                            p.propertyType,
+                            COUNT(p)
+                        )
+                        FROM Property p
+                        WHERE p.ownerId = :ownerId
+                          AND p.status = :status
+                        GROUP BY p.propertyType
+                        """)
+        List<PropertyTypeCountDTO> countByOwnerIdAndStatusGroupByPropertyType(
+                        @Param("ownerId") Long ownerId,
+                        @Param("status") Property.Status status);
 
-    @Query(value = """
-            SELECT * FROM properties p
-            WHERE p.status = :status
-              AND p.video_url IS NOT NULL
-              AND p.video_url <> ''
-              AND (
-                    p.created_at < :lastCreatedAt
-                    OR (p.created_at = :lastCreatedAt AND p.id < :lastId)
-                  )
-            ORDER BY p.created_at DESC, p.id DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<Property> findNextReelsFeed(
-            @Param("status") String status,
-            @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
-            @Param("lastId") Long lastId,
-            @Param("limit") int limit
-    );
+        @Query(value = """
+                        SELECT * FROM properties p
+                        WHERE p.status = :status
+                          AND p.video_url IS NOT NULL
+                          AND p.video_url <> ''
+                        ORDER BY p.created_at DESC, p.id DESC
+                        LIMIT :limit
+                        """, nativeQuery = true)
+        List<Property> findFirstReelsFeed(
+                        @Param("status") String status,
+                        @Param("limit") int limit);
 
-    List<Property> findTop10ByIsPromotedTrueOrderByCreatedAtDesc();
+        @Query(value = """
+                        SELECT * FROM properties p
+                        WHERE p.status = :status
+                          AND p.video_url IS NOT NULL
+                          AND p.video_url <> ''
+                          AND (
+                                p.created_at < :lastCreatedAt
+                                OR (p.created_at = :lastCreatedAt AND p.id < :lastId)
+                              )
+                        ORDER BY p.created_at DESC, p.id DESC
+                        LIMIT :limit
+                        """, nativeQuery = true)
+        List<Property> findNextReelsFeed(
+                        @Param("status") String status,
+                        @Param("lastCreatedAt") LocalDateTime lastCreatedAt,
+                        @Param("lastId") Long lastId,
+                        @Param("limit") int limit);
 
-    List<Property> findTop10ByOrderByCreatedAtDesc();
+        List<Property> findTop10ByIsPromotedTrueOrderByCreatedAtDesc();
 
-    List<Property> findTop10ByVideoUrlIsNotNullOrderByCreatedAtDesc();
+        List<Property> findTop10ByOrderByCreatedAtDesc();
 
-    List<Property> findTop10ByIsPromotedTrueAndVideoUrlIsNotNullOrderByCreatedAtDesc();
+        List<Property> findTop10ByVideoUrlIsNotNullOrderByCreatedAtDesc();
 
-    @Query(value = """
-            SELECT *
-            FROM properties
-            WHERE is_promoted = true
-              AND status = 'ACTIVE'
-            ORDER BY created_at DESC
-            LIMIT 100
-            """, nativeQuery = true)
-    List<Property> findPromotedProperties();
+        List<Property> findTop10ByIsPromotedTrueAndVideoUrlIsNotNullOrderByCreatedAtDesc();
 
-    @Query(value = """
-            SELECT *
-            FROM properties
-            WHERE is_promoted = true
-              AND status = 'ACTIVE'
-              AND video_url IS NOT NULL
-              AND video_url <> ''
-            ORDER BY created_at DESC
-            LIMIT 100
-            """, nativeQuery = true)
-    List<Property> findPromotedReels();
+        @Query(value = """
+                        SELECT *
+                        FROM properties
+                        WHERE is_promoted = true
+                          AND status = 'ACTIVE'
+                        ORDER BY created_at DESC
+                        LIMIT 100
+                        """, nativeQuery = true)
+        List<Property> findPromotedProperties();
 
-    @Query(value = """
-            SELECT *
-            FROM properties
-            WHERE status = 'ACTIVE'
-            ORDER BY RANDOM()
-            LIMIT 100
-            """, nativeQuery = true)
-    List<Property> findRandomProperties();
+        @Query(value = """
+                        SELECT *
+                        FROM properties
+                        WHERE is_promoted = true
+                          AND status = 'ACTIVE'
+                          AND video_url IS NOT NULL
+                          AND video_url <> ''
+                        ORDER BY created_at DESC
+                        LIMIT 100
+                        """, nativeQuery = true)
+        List<Property> findPromotedReels();
 
-    @Query(value = """
-            SELECT *
-            FROM properties
-            WHERE status = 'ACTIVE'
-              AND video_url IS NOT NULL
-              AND video_url <> ''
-            ORDER BY RANDOM()
-            LIMIT 100
-            """, nativeQuery = true)
-    List<Property> findRandomReels();
+        @Query(value = """
+                        SELECT *
+                        FROM properties
+                        WHERE status = 'ACTIVE'
+                        ORDER BY RANDOM()
+                        LIMIT 100
+                        """, nativeQuery = true)
+        List<Property> findRandomProperties();
 
-    long countByOwnerIdAndStatus(Long ownerId, Property.Status status);
+        @Query(value = """
+                        SELECT *
+                        FROM properties
+                        WHERE status = 'ACTIVE'
+                          AND video_url IS NOT NULL
+                          AND video_url <> ''
+                        ORDER BY RANDOM()
+                        LIMIT 100
+                        """, nativeQuery = true)
+        List<Property> findRandomReels();
 
-    long countByOwnerIdAndIsPromotedTrueAndStatus(
-            Long ownerId,
-            Property.Status status
-    );
+        long countByOwnerIdAndStatus(Long ownerId, Property.Status status);
 
-    Page<Property> findByOwnerIdOrderByCreatedAtDesc(
-            Long ownerId,
-            Pageable pageable
-    );
+        long countByOwnerIdAndIsPromotedTrueAndStatus(
+                        Long ownerId,
+                        Property.Status status);
 
-    Page<Property> findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
-            Long ownerId,
-            Property.TransactionType transactionType,
-            Pageable pageable
-    );
+        Page<Property> findByOwnerIdOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Pageable pageable);
 
-    @Query("""
-                SELECT p
-                FROM Property p
-                WHERE p.projectId = :projectId
-                  AND p.status = :status
-                  AND p.expiresAt > :now
-                ORDER BY p.createdAt DESC
-            """)
-    Page<Property> findPublicByProjectId(
-            @Param("projectId") Long projectId,
-            @Param("status") Property.Status status,
-            @Param("now") LocalDateTime now,
-            Pageable pageable
-    );
+        Page<Property> findByOwnerIdAndTransactionTypeOrderByCreatedAtDesc(
+                        Long ownerId,
+                        Property.TransactionType transactionType,
+                        Pageable pageable);
 
+        @Query("""
+                            SELECT p
+                            FROM Property p
+                            WHERE p.projectId = :projectId
+                              AND p.status = :status
+                              AND p.expiresAt > :now
+                            ORDER BY p.createdAt DESC
+                        """)
+        Page<Property> findPublicByProjectId(
+                        @Param("projectId") Long projectId,
+                        @Param("status") Property.Status status,
+                        @Param("now") LocalDateTime now,
+                        Pageable pageable);
+
+        @Query("""
+                            SELECT p
+                            FROM Property p
+                            WHERE p.id <> :propertyId
+                              AND p.status = :status
+                              AND (:propertyType IS NULL OR p.propertyType = :propertyType)
+                              AND (:district IS NULL OR LOWER(p.district) = LOWER(:district))
+                            ORDER BY
+                              ABS(COALESCE(p.price, 0) - COALESCE(:price, 0)) ASC
+                        """)
+        List<Property> findSimilarProperties(
+                        Long propertyId,
+                        Property.Status status,
+                        Property.PropertyType propertyType,
+                        String district,
+                        BigDecimal price,
+                        Pageable pageable);
+
+        @Query("""
+                            SELECT p
+                            FROM Property p
+                            WHERE p.id <> :propertyId
+                              AND p.status = :status
+                            ORDER BY
+                              CASE
+                                WHEN :district IS NOT NULL AND LOWER(p.district) = LOWER(:district) THEN 0
+                                ELSE 1
+                              END,
+                              ABS(COALESCE(p.price, 0) - COALESCE(:price, 0)) ASC
+                        """)
+        List<Property> findSimilarPropertiesFallback(
+                        Long propertyId,
+                        Property.Status status,
+                        String district,
+                        BigDecimal price,
+                        Pageable pageable);
 
 }
