@@ -78,12 +78,33 @@ public class ChatServiceImpl implements ChatService {
 
         conversationRepository.save(conversation);
 
+        String replyToMessageId = dto.getReplyToMessageId();
+        String replyPreview = null;
+        Long replySenderId = null;
+
+        if (replyToMessageId != null && !replyToMessageId.isBlank()) {
+            Message repliedMessage = messageRepository.findById(replyToMessageId)
+                    .orElse(null);
+
+            if (repliedMessage != null) {
+                replyPreview = repliedMessage.isRecalled()
+                        ? "Tin nhắn đã được thu hồi"
+                        : repliedMessage.getContent();
+
+                replySenderId = repliedMessage.getSenderId();
+            }
+        }
+
         Message message = Message.builder()
                 .conversationId(conversation.getId())
                 .senderId(currentUserId)
                 .receiverId(dto.getReceiverId())
                 .content(dto.getContent())
                 .type(dto.getType())
+                .replyToMessageId(replyToMessageId)
+                .mediaUrl(dto.getMediaUrl())
+                .replyPreview(replyPreview)
+                .replySenderId(replySenderId)
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -231,4 +252,73 @@ public class ChatServiceImpl implements ChatService {
                                     "readAt", now.toString()));
                 });
     }
+
+    @Override
+    public void recallMessage(String messageId) {
+        Long currentUserId = getCurrentUserId();
+
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tin nhắn"));
+
+        if (!message.getSenderId().equals(currentUserId)) {
+            throw new RuntimeException("Bạn chỉ có thể thu hồi tin nhắn của chính mình");
+        }
+
+        message.setContent("");
+        message.setRecalled(true);
+        message.setRecalledAt(LocalDateTime.now());
+
+        Message saved = messageRepository.save(message);
+
+        ChatMessageResponse response = chatMapper.toResponse(saved);
+
+        messagingTemplate.convertAndSendToUser(
+                message.getReceiverId().toString(),
+                "/queue/message-recalled",
+                response);
+
+        messagingTemplate.convertAndSendToUser(
+                message.getSenderId().toString(),
+                "/queue/message-recalled",
+                response);
+    }
+    @Override
+public ChatMessageResponse reactMessage(String messageId, String emoji) {
+    Long currentUserId = getCurrentUserId();
+
+    Message message = messageRepository.findById(messageId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy tin nhắn"));
+
+    if (!message.getSenderId().equals(currentUserId)
+            && !message.getReceiverId().equals(currentUserId)) {
+        throw new RuntimeException("Bạn không có quyền reaction tin nhắn này");
+    }
+
+    if (message.getReactions() == null) {
+        message.setReactions(new java.util.HashMap<>());
+    }
+
+    if (emoji == null || emoji.isBlank()) {
+        message.getReactions().remove(currentUserId);
+    } else {
+        message.getReactions().put(currentUserId, emoji);
+    }
+
+    Message saved = messageRepository.save(message);
+    ChatMessageResponse response = chatMapper.toResponse(saved);
+
+    messagingTemplate.convertAndSendToUser(
+            message.getReceiverId().toString(),
+            "/queue/message-reaction",
+            response
+    );
+
+    messagingTemplate.convertAndSendToUser(
+            message.getSenderId().toString(),
+            "/queue/message-reaction",
+            response
+    );
+
+    return response;
+}
 }

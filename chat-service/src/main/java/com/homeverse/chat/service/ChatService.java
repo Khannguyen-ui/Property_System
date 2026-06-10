@@ -16,5 +16,7 @@ public interface ChatService {
     void createConversationIfNotExists(Long partnerId);
 
     void markAsRead(Long partnerId);
+    void recallMessage(String messageId);
+    ChatMessageResponse reactMessage(String messageId, String emoji);
     
 }

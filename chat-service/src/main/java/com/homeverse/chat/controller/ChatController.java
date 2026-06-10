@@ -2,6 +2,7 @@ package com.homeverse.chat.controller;
 
 import com.homeverse.chat.dto.ai.AiChatRequest;
 import com.homeverse.chat.dto.request.ChatMessageDTO;
+import com.homeverse.chat.dto.request.MessageReactionRequest;
 import com.homeverse.chat.dto.request.TypingEvent;
 import com.homeverse.chat.dto.response.ChatMessageResponse;
 import com.homeverse.chat.dto.response.ConversationResponse;
@@ -137,7 +138,7 @@ public class ChatController {
 
     @MessageMapping("/chat.typing")
     public void typing(@Payload TypingEvent event) {
-          System.out.println("TYPING EVENT = " + event);
+        System.out.println("TYPING EVENT = " + event);
         messagingTemplate.convertAndSendToUser(
                 event.getReceiverId().toString(),
                 "/queue/typing",
@@ -145,15 +146,14 @@ public class ChatController {
     }
 
     @PostMapping("/presence/online")
-public ResponseEntity<Void> markOnline(
-        @RequestHeader("X-User-Id") Long userId
-) {
-    System.out.println("CALL MARK ONLINE USER = " + userId);
+    public ResponseEntity<Void> markOnline(
+            @RequestHeader("X-User-Id") Long userId) {
+        System.out.println("CALL MARK ONLINE USER = " + userId);
 
-    chatPresenceService.markOnline(userId);
+        chatPresenceService.markOnline(userId);
 
-    return ResponseEntity.ok().build();
-}
+        return ResponseEntity.ok().build();
+    }
 
     @PostMapping("/presence/offline")
     public ResponseEntity<Void> markOffline(@RequestHeader("X-User-Id") Long userId) {
@@ -173,4 +173,21 @@ public ResponseEntity<Void> markOnline(
 
         return ResponseEntity.ok(result);
     }
+
+    @PutMapping("/recall/{messageId}")
+    public ResponseEntity<Void> recallMessage(@PathVariable String messageId) {
+        chatService.recallMessage(messageId);
+        return ResponseEntity.ok().build();
+    }
+    @PostMapping("/reaction")
+public ResponseEntity<ChatMessageResponse> reactMessage(
+        @RequestBody MessageReactionRequest request
+) {
+    return ResponseEntity.ok(
+            chatService.reactMessage(
+                    request.getMessageId(),
+                    request.getEmoji()
+            )
+    );
+}
 }

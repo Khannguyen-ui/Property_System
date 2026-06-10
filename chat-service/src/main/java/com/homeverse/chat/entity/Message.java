@@ -6,6 +6,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Document(collection = "messages")
 @Data
@@ -29,6 +31,22 @@ public class Message {
     private String content;
 
     private String type;
+    @Field("reply_to_message_id")
+    private String replyToMessageId;
+
+    @Field("reply_preview")
+    private String replyPreview;
+
+    @Field("reply_sender_id")
+    private Long replySenderId;
+    @Field("is_recalled")
+    private boolean recalled = false;
+
+    @Field("recalled_at")
+    private LocalDateTime recalledAt;
+    private String mediaUrl;
+    @Field("reactions")
+    private Map<Long, String> reactions = new HashMap<>();
 
     @Field("is_read")
     private boolean isRead = false;

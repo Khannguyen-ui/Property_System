@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ChatMapper {
-    
+
     @Autowired
     private ModelMapper modelMapper;
 
@@ -19,22 +19,36 @@ public class ChatMapper {
     private ConversationRepository conversationRepository;
 
     public Message toEntity(ChatMessageDTO dto) {
-        if (dto == null) return null;
+        if (dto == null)
+            return null;
         Message message = modelMapper.map(dto, Message.class);
         message.setSenderId(dto.getSenderId());
         message.setConversationId(dto.getConversationId());
+
         return message;
     }
 
     public ChatMessageResponse toResponse(Message entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
 
         ChatMessageResponse dto = new ChatMessageResponse();
         dto.setId(entity.getId());
-        dto.setContent(entity.getContent());
+        if (entity.isRecalled()) {
+            dto.setContent("Tin nhắn đã được thu hồi");
+        } else {
+            dto.setContent(entity.getContent());
+        }
         dto.setType(entity.getType());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setSenderId(entity.getSenderId());
+        dto.setReplyToMessageId(entity.getReplyToMessageId());
+        dto.setReactions(entity.getReactions());
+        dto.setReplyPreview(entity.getReplyPreview());
+        dto.setReplySenderId(entity.getReplySenderId());
+        dto.setRecalled(entity.isRecalled());
+        dto.setRecalledAt(entity.getRecalledAt());
+        dto.setMediaUrl(entity.getMediaUrl());
 
         if (entity.getConversationId() != null) {
             conversationRepository.findById(entity.getConversationId()).ifPresent(conv -> {

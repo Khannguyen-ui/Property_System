@@ -37,6 +37,7 @@ public class RedisRecommendationService {
     private final CollaborativeRecommendationService collaborativeRecommendationService;
     private final RankingConfigService rankingConfigService;
     private final SourceAnalyticsService sourceAnalyticsService;
+    private final RecommendRealtimeService recommendRealtimeService;
 
     public List<PropertyResponseDTO> getRecommendedProperties(Long userId) {
         String key = "user:" + userId + ":recommend:properties";

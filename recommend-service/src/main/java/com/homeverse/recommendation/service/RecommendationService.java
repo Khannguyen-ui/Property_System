@@ -26,6 +26,7 @@ public class RecommendationService {
     private final FraudDetectionService fraudDetectionService;
     private final RecommendationMetricsService recommendationMetricsService;
     private final BanditService banditService;
+    private final RecommendRealtimeService recommendRealtimeService;
 
     public PredictResponse predict(PredictRequest request) {
         try {
@@ -43,8 +44,7 @@ public class RecommendationService {
                     request.getUserId(),
                     request.getItemId(),
                     request.getItemType(),
-                    request.getAction()
-            );
+                    request.getAction());
 
             if (fraudCheckResult.getDecision() == FraudDecision.BLOCK) {
                 recommendationMetricsService.getSpamBlockedCounter().increment();
@@ -62,8 +62,7 @@ public class RecommendationService {
                         "ML service failed, keep tracking with fallback. userId={}, itemId={}, reason={}",
                         request.getUserId(),
                         request.getItemId(),
-                        e.getMessage()
-                );
+                        e.getMessage());
                 response = buildFallbackResponse(predictRequest, "fallback_rule");
             }
 
@@ -73,8 +72,7 @@ public class RecommendationService {
                     request,
                     predictRequest,
                     response,
-                    fraudCheckResult
-            );
+                    fraudCheckResult);
 
             userBehaviorRepository.save(behavior);
 
@@ -94,6 +92,17 @@ public class RecommendationService {
                 userInterestProfileService.updateProfile(request.getUserId());
             } catch (Exception e) {
                 log.warn("Update user profile failed. userId={}, reason={}", request.getUserId(), e.getMessage());
+            }
+
+            try {
+                recommendRealtimeService.notifyUser(
+                        request.getUserId(),
+                        request.getItemType());
+            } catch (Exception e) {
+                log.warn(
+                        "Realtime recommend notify failed. userId={}, reason={}",
+                        request.getUserId(),
+                        e.getMessage());
             }
 
             return response;
@@ -146,11 +155,10 @@ public class RecommendationService {
         double locationMatch = request.getLocationMatch() == null ? 0.0 : request.getLocationMatch();
         double categoryMatch = request.getCategoryMatch() == null ? 0.0 : request.getCategoryMatch();
 
-        double score =
-                actionScore * 0.55 +
-                        watchRatio * 0.25 +
-                        locationMatch * 0.10 +
-                        categoryMatch * 0.10;
+        double score = actionScore * 0.55 +
+                watchRatio * 0.25 +
+                locationMatch * 0.10 +
+                categoryMatch * 0.10;
 
         return Math.min(1.0, Math.max(0.0, score));
     }
@@ -176,8 +184,7 @@ public class RecommendationService {
             TrackEventRequest request,
             PredictRequest predictRequest,
             PredictResponse response,
-            FraudCheckResult fraudCheckResult
-    ) {
+            FraudCheckResult fraudCheckResult) {
         return UserBehavior.builder()
                 .userId(request.getUserId())
                 .itemId(request.getItemId())
@@ -209,7 +216,6 @@ public class RecommendationService {
                 request.getUserId(),
                 request.getItemType(),
                 request.getItemId(),
-                request.getAction()
-        );
+                request.getAction());
     }
 }
