@@ -370,14 +370,7 @@ services:
       - /opt/homeverse/frontend-dist:/usr/share/nginx/html:ro
       - /opt/homeverse/certbot-www:/var/www/certbot:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-    depends_on:
-      - identity-service
-      - property-service
-      - media-service
-      - search-service
-      - chat-service
-      - ai-worker-service
-      - recommend-service
+
     networks:
       - homeverse-network
 
