@@ -270,7 +270,13 @@ public class PropertyServiceImpl implements PropertyService {
         propertyRepository.hardDeleteById(id);
         log.info("Chủ nhà {} đã XÓA VĨNH VIỄN bài đăng ID: {}", ownerId, id);
     }
-
+    @Override
+    @Transactional(readOnly = true)
+    public PropertyResponseDTO getPropertyInternal(Long id) {
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
+        return mapToResponse(property);
+    }
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void restoreProperty(Long ownerId, Long id) {
