@@ -44,7 +44,14 @@ public class PublicPropertyController {
     public ResponseEntity<List<PropertyResponseDTO>> getAllActiveProperties() {
         return ResponseEntity.ok(propertyService.getAllActiveProperties());
     }
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<PropertyResponseDTO> getPropertyInternal(
+            @PathVariable Long id) {
 
+        return ResponseEntity.ok(
+                propertyService.getPropertyInternal(id)
+        );
+    }
     @GetMapping("/owners/{ownerId}/trust-score")
     public ApiResponse<Double> getOwnerTrustScore(@PathVariable Long ownerId) {
         return ApiResponse.<Double>builder()
@@ -97,14 +104,7 @@ public class PublicPropertyController {
                 .result(propertyService.getRandomReels())
                 .build();
     }
-    @GetMapping("/internal/{id}")
-    public ResponseEntity<PropertyResponseDTO> getPropertyInternal(
-            @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                propertyService.getPropertyInternal(id)
-        );
-    }
     // 2. Xem chi tiết 1 bài đăng (Khi khách click vào Card)
     @GetMapping("/{id}")
     public ResponseEntity<PropertyResponseDTO> getPropertyDetail(@PathVariable Long id) {
