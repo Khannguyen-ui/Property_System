@@ -22,6 +22,8 @@ public interface PropertyService {
 
     void restoreProperty(Long ownerId, Long id);
 
+    PropertyResponseDTO getPropertyInternal(Long id);
+
     Page<PropertyResponseDTO> getMyDeletedProperties(Long ownerId, int page, int size);
 
     Page<PropertyResponseDTO> getPublicProperties(int page, int size);

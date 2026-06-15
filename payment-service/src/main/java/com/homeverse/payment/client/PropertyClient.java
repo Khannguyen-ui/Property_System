@@ -17,7 +17,7 @@ public class PropertyClient {
 
     public PropertyResponseDTO getProperty(Long propertyId) {
         return restTemplate.getForObject(
-                propertyServiceUrl + "/properties/" + propertyId,
+                propertyServiceUrl + "/public/properties/internal/" + propertyId,
                 PropertyResponseDTO.class
         );
     }
