@@ -26,6 +26,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
+
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
@@ -33,11 +34,12 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             throws IOException, ServletException {
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+
         String email = oAuth2User.getAttribute("email");
+        String fbId = oAuth2User.getAttribute("id");
+        String searchKey = (email != null) ? email : fbId + "@facebook.com";
 
-        System.out.println("🔥 SUCCESS HANDLER ĐANG CHẠY CHO: " + email);
-
-        var user = userRepository.findByEmail(email)
+        var user = userRepository.findByEmail(searchKey)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Map<String, Object> extraClaims = new HashMap<>();
@@ -50,4 +52,5 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
+
 }
