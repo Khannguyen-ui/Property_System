@@ -64,6 +64,7 @@ public class AuthServiceImpl implements AuthService {
                 .password(passwordEncoder.encode(registerDTO.getPassword()))
                 .fullName(registerDTO.getFullName())
                 .role(UserCredential.Role.USER)
+                .freePostsRemaining(8)
                 .build();
 
         UserCredential savedUser = userRepository.save(user);

@@ -43,6 +43,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                             .fullName(fullName)
                             .password(null)
                             .role(UserCredential.Role.USER)
+                            .freePostsRemaining(8)
                             .isActive(true);
 
                     if (email != null) {
