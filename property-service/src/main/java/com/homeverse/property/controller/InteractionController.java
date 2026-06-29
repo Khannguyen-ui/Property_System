@@ -161,10 +161,35 @@ public class InteractionController {
     }
 
     @PostMapping("/{propertyId}/share")
-    public ResponseEntity<Void> shareProperty(
-            @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long propertyId) {
-        interactionService.shareProperty(userId, propertyId);
-        return ResponseEntity.ok().build();
+public ResponseEntity<Void> shareProperty(
+        Authentication authentication,
+        @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
+        @PathVariable Long propertyId) {
+
+    Long userId = extractUserId(authentication);
+    validateIdentifier(userId, guestId);
+
+    interactionService.shareProperty(userId, propertyId);
+
+    if (userId != null) {
+        trackInteraction(userId, propertyId, "SHARE");
     }
+
+    return ResponseEntity.ok().build();
+}
+    @PostMapping("/{id}/click")
+public ResponseEntity<String> trackClick(
+        Authentication authentication,
+        @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
+        @PathVariable Long id) {
+
+    Long userId = extractUserId(authentication);
+    validateIdentifier(userId, guestId);
+
+    if (userId != null) {
+        trackInteraction(userId, id, "CLICK");
+    }
+
+    return ResponseEntity.ok("Click tracked");
+}
 }

@@ -26,7 +26,7 @@ public class AdminServicePackageController {
 
 
     @GetMapping("/active")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER',)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<List<ServicePackage>> getAllActivePackages() {
         return ResponseEntity.ok(servicePackageService.getAllActivePackages());
     }
