@@ -177,7 +177,7 @@ public ResponseEntity<Void> shareProperty(
 
     return ResponseEntity.ok().build();
 }
-    @PostMapping("/{id}/click")
+   @PostMapping("/{id}/click")
 public ResponseEntity<String> trackClick(
         Authentication authentication,
         @RequestHeader(value = "X-Guest-Id", required = false) String guestId,
@@ -185,6 +185,8 @@ public ResponseEntity<String> trackClick(
 
     Long userId = extractUserId(authentication);
     validateIdentifier(userId, guestId);
+
+    interactionService.trackClick(userId, guestId, id);
 
     if (userId != null) {
         trackInteraction(userId, id, "CLICK");

@@ -176,4 +176,15 @@ public class InteractionServiceImpl implements InteractionService {
                         .district(property.getDistrict())
                         .build());
     }
+    @Override
+public void trackClick(Long userId, String guestId, Long propertyId) {
+    redisTemplate.opsForValue()
+            .increment("property:" + propertyId + ":clicks");
+
+    log.info(
+            "Click tracked: property={}, user={}, guest={}",
+            propertyId,
+            userId,
+            guestId);
+}
 }
