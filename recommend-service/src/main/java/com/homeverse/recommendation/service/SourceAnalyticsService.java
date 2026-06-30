@@ -110,4 +110,56 @@ public class SourceAnalyticsService {
                 .min((a, b) -> Double.compare(a.getCtr(), b.getCtr()))
                 .orElse(null);
     }
+    public void trackClick(
+        Long userId,
+        Long itemId,
+        String itemType,
+        String source) {
+    SourceAnalyticsTrackRequest request = new SourceAnalyticsTrackRequest();
+    request.setUserId(userId);
+    request.setItemId(itemId);
+    request.setItemType(itemType);
+    request.setSource(source);
+    request.setEventType("CLICK");
+
+    track(request);
+}
+
+public void trackContact(
+        Long userId,
+        Long itemId,
+        String itemType,
+        String source) {
+    SourceAnalyticsTrackRequest request = new SourceAnalyticsTrackRequest();
+    request.setUserId(userId);
+    request.setItemId(itemId);
+    request.setItemType(itemType);
+    request.setSource(source);
+    request.setEventType("CONTACT");
+
+    track(request);
+}
+public String findLatestImpressionSource(Long userId, Long itemId, String itemType) {
+    return repository
+            .findTopByUserIdAndItemIdAndItemTypeAndEventTypeIgnoreCaseOrderByCreatedAtDesc(
+                    userId,
+                    itemId,
+                    itemType,
+                    "IMPRESSION"
+            )
+            .map(RecommendationSourceAnalytics::getSource)
+            .orElse("RANDOM");
+}
+public void trackClick(Long userId, Long itemId, String itemType) {
+    String source = findLatestImpressionSource(userId, itemId, itemType);
+
+    SourceAnalyticsTrackRequest request = new SourceAnalyticsTrackRequest();
+    request.setUserId(userId);
+    request.setItemId(itemId);
+    request.setItemType(itemType);
+    request.setSource(source);
+    request.setEventType("CLICK");
+
+    track(request);
+}
 }

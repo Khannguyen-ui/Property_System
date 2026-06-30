@@ -10,6 +10,8 @@ import com.homeverse.recommendation.model.UserBehavior;
 import com.homeverse.recommendation.repository.UserBehaviorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +29,8 @@ public class RecommendationService {
     private final RecommendationMetricsService recommendationMetricsService;
     private final BanditService banditService;
     private final RecommendRealtimeService recommendRealtimeService;
+    private final StringRedisTemplate redisTemplate;
+    private final SourceAnalyticsService sourceAnalyticsService;
 
     public PredictResponse predict(PredictRequest request) {
         try {
@@ -75,6 +79,27 @@ public class RecommendationService {
                     fraudCheckResult);
 
             userBehaviorRepository.save(behavior);
+            try {
+                if ("CLICK".equalsIgnoreCase(request.getAction())) {
+                    sourceAnalyticsService.trackClick(
+                            request.getUserId(),
+                            request.getItemId(),
+                            request.getItemType());
+                }
+            } catch (Exception e) {
+                log.warn("Track source click failed. userId={}, itemId={}, reason={}",
+                        request.getUserId(),
+                        request.getItemId(),
+                        e.getMessage());
+            }
+            try {
+                updateRedisRecommendationScore(request, response);
+            } catch (Exception e) {
+                log.warn("Update redis recommend score failed. userId={}, itemId={}, reason={}",
+                        request.getUserId(),
+                        request.getItemId(),
+                        e.getMessage());
+            }
 
             try {
                 trackSessionDistrict(request);
@@ -107,6 +132,30 @@ public class RecommendationService {
 
             return response;
         });
+    }
+
+    private void updateRedisRecommendationScore(TrackEventRequest request, PredictResponse response) {
+        if (request.getUserId() == null || request.getItemId() == null || request.getItemType() == null) {
+            return;
+        }
+
+        String itemType = request.getItemType().trim().toLowerCase();
+
+        String key = itemType.equals("reel")
+                ? "user:" + request.getUserId() + ":recommend:reels"
+                : "user:" + request.getUserId() + ":recommend:properties";
+
+        double score = response.getScore() != null ? response.getScore() : 0.0;
+
+        redisTemplate.opsForZSet().incrementScore(
+                key,
+                request.getItemId().toString(),
+                score);
+
+        log.info("Redis recommend score updated. key={}, itemId={}, addScore={}",
+                key,
+                request.getItemId(),
+                score);
     }
 
     private PredictResponse buildBlockedResponse(TrackEventRequest request) {
