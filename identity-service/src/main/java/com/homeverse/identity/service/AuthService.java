@@ -11,6 +11,7 @@ public interface AuthService {
     UserResponseDTO register(UserRegisterDTO registerDTO);
     AuthResponse login(LoginDTO loginDTO);
     AuthResponse generateTokenForOAuth2(String email);
+    AuthResponse exchangeOAuth2Code(String code);
     void sendForgotPasswordEmail(String email);
     void resetPassword(String token, String newPassword);
     void changePassword(ChangePasswordRequest request);
