@@ -4,11 +4,13 @@ import com.homeverse.payment.config.VNPayConfig;
 import com.homeverse.payment.service.VNPayService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -17,11 +19,24 @@ import javax.crypto.spec.SecretKeySpec;
 @RequiredArgsConstructor
 public class VNPayServiceImpl implements VNPayService {
 
+    private static final String REDIRECT_PREFIX = "vnpay:redirect:";
+    private static final Duration REDIRECT_TTL = Duration.ofMinutes(30);
+
     private final VNPayConfig vnPayConfig;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public String createPaymentUrl(long amount, String orderInfo, HttpServletRequest request) {
         String vnp_TxnRef = VNPayConfig.getRandomNumber(8);
+        return createPaymentUrl(amount, orderInfo, vnp_TxnRef, request);
+    }
+
+    @Override
+    public String createPaymentUrl(long amount, String orderInfo, String txnRef, HttpServletRequest request) {
+        String vnp_TxnRef = (txnRef == null || txnRef.isBlank())
+                ? VNPayConfig.getRandomNumber(8)
+                : txnRef;
+
         String vnp_IpAddr = VNPayConfig.getIpAddress(request);
 
         Map<String, String> vnp_Params = new HashMap<>();
@@ -47,19 +62,20 @@ public class VNPayServiceImpl implements VNPayService {
 
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
         Collections.sort(fieldNames);
+
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
-        
-        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext();) {
+
+        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext(); ) {
             String fieldName = itr.next();
             String fieldValue = vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+            if (fieldValue != null && !fieldValue.isEmpty()) {
                 String encodedName = URLEncoder.encode(fieldName, StandardCharsets.UTF_8);
                 String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8);
-                
+
                 hashData.append(fieldName).append('=').append(encodedValue);
                 query.append(encodedName).append('=').append(encodedValue);
-                
+
                 if (itr.hasNext()) {
                     query.append('&');
                     hashData.append('&');
@@ -68,16 +84,53 @@ public class VNPayServiceImpl implements VNPayService {
         }
 
         String vnp_SecureHash = hmacSHA512(vnPayConfig.vnp_HashSecret, hashData.toString());
-        return vnPayConfig.vnp_PayUrl + "?" + query.toString() + "&vnp_SecureHash=" + vnp_SecureHash;
+        return vnPayConfig.vnp_PayUrl + "?" + query + "&vnp_SecureHash=" + vnp_SecureHash;
+    }
+
+    @Override
+    public void storeRedirectTarget(String txnRef, String successUrl, String failedUrl) {
+        if (txnRef == null || txnRef.isBlank()) {
+            return;
+        }
+
+        if (successUrl != null && !successUrl.isBlank()) {
+            redisTemplate.opsForValue().set(
+                    REDIRECT_PREFIX + txnRef + ":success",
+                    successUrl,
+                    REDIRECT_TTL
+            );
+        }
+
+        if (failedUrl != null && !failedUrl.isBlank()) {
+            redisTemplate.opsForValue().set(
+                    REDIRECT_PREFIX + txnRef + ":failed",
+                    failedUrl,
+                    REDIRECT_TTL
+            );
+        }
+    }
+
+    @Override
+    public String consumeRedirectUrl(String txnRef, boolean success) {
+        if (txnRef == null || txnRef.isBlank()) {
+            return null;
+        }
+
+        String key = REDIRECT_PREFIX + txnRef + ":" + (success ? "success" : "failed");
+        String url = redisTemplate.opsForValue().get(key);
+        if (url != null) {
+            redisTemplate.delete(key);
+        }
+        return url;
     }
 
     @Override
     public int orderReturn(HttpServletRequest request) {
         Map<String, String> fields = new HashMap<>();
-        for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements();) {
+        for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements(); ) {
             String fieldName = params.nextElement();
             String fieldValue = request.getParameter(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+            if (fieldValue != null && !fieldValue.isEmpty()) {
                 fields.put(fieldName, fieldValue);
             }
         }
@@ -105,15 +158,16 @@ public class VNPayServiceImpl implements VNPayService {
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);
         StringBuilder sb = new StringBuilder();
-        
-        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext();) {
+
+        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext(); ) {
             String fieldName = itr.next();
             String fieldValue = fields.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+            if (fieldValue != null && !fieldValue.isEmpty()) {
                 sb.append(fieldName).append("=").append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
                 if (itr.hasNext()) sb.append("&");
             }
         }
+
         return hmacSHA512(vnPayConfig.vnp_HashSecret, sb.toString()).equals(vnp_SecureHash);
     }
 

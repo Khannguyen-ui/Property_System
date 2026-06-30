@@ -6,22 +6,30 @@ import com.homeverse.common.exception.ErrorCode;
 import com.homeverse.identity.dto.request.*;
 import com.homeverse.identity.dto.response.AuthResponse;
 import com.homeverse.identity.dto.response.UserResponseDTO;
-import com.homeverse.identity.security.CustomOAuth2User;
+import com.homeverse.identity.dto.request.OAuth2ExchangeCodeRequest;
+import com.homeverse.identity.service.OAuth2LoginCodeService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+
 import com.homeverse.identity.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+
 @Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
+    private final OAuth2LoginCodeService oAuth2LoginCodeService;
     private final AuthService authService;
 
     @PostMapping("/register")
@@ -37,30 +45,56 @@ public class AuthController {
                 .result(authService.login(loginDTO))
                 .build();
     }
- @GetMapping("/login-success")
-public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
-    // 1. Kiểm tra xác thực
-    if (authentication == null || !(authentication.getPrincipal() instanceof OAuth2User oAuth2User)) {
-        throw new AppException(ErrorCode.UNAUTHENTICATED);
+
+    @GetMapping("/login-success")
+    public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
+        // 1. Kiểm tra xác thực
+        if (authentication == null || !(authentication.getPrincipal() instanceof OAuth2User oAuth2User)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        // 2. Lấy email từ Google/Facebook
+        String email = oAuth2User.getAttribute("email");
+        if (email == null) {
+            String fbId = oAuth2User.getAttribute("id");
+            email = fbId + "@facebook.com";
+        }
+
+        System.out.println(" OAuth2 Login thành công cho: " + email);
+
+        AuthResponse response = authService.generateTokenForOAuth2(email);
+
+        return ApiResponse.<AuthResponse>builder()
+                .code(1000)
+                .result(response)
+                .build();
     }
 
-    // 2. Lấy email từ Google/Facebook
-    String email = oAuth2User.getAttribute("email");
-    if (email == null) {
-        String fbId = oAuth2User.getAttribute("id");
-        email = fbId + "@facebook.com";
+    @GetMapping("/oauth2/google/mobile")
+    public void startGoogleMobileLogin(HttpServletRequest request,
+                                       HttpServletResponse response,
+                                       @RequestParam(value = "redirect_uri", required = false) String redirectUri)
+            throws IOException {
+
+        String target = (redirectUri != null && redirectUri.startsWith("homeswipe://"))
+                ? redirectUri
+                : "homeswipe://login-success";
+
+        request.getSession(true).setAttribute("OAUTH2_TARGET", target);
+        response.sendRedirect("/oauth2/authorization/google");
     }
 
-    System.out.println(">>> OAuth2 Login thành công cho: " + email);
+    @PostMapping("/oauth2/exchange-code")
+    public ApiResponse<AuthResponse> exchangeOAuth2Code(@RequestBody @Valid OAuth2ExchangeCodeRequest request) {
+        String email = oAuth2LoginCodeService.consumeEmail(request.getCode());
+        if (email == null || email.isBlank()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
 
-    AuthResponse response = authService.generateTokenForOAuth2(email);
-
-    return ApiResponse.<AuthResponse>builder()
-            .code(1000)
-            .result(response)
-            .build();
-}
-    // === BỔ SUNG 2 HÀM CÒN THIẾU Ở ĐÂY ===
+        return ApiResponse.<AuthResponse>builder()
+                .result(authService.generateTokenForOAuth2(email))
+                .build();
+    }
 
     @PostMapping("/forgot-password")
     public ApiResponse<String> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
@@ -93,6 +127,7 @@ public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
                 .result("Đổi email thành công. Vui lòng đăng nhập lại bằng email mới!")
                 .build();
     }
+
     @PostMapping("/refresh")
     public ApiResponse<AuthResponse> refreshToken(@RequestHeader("Authorization") String authHeader) {
         return ApiResponse.<AuthResponse>builder()
@@ -101,6 +136,7 @@ public ApiResponse<AuthResponse> loginSuccess(Authentication authentication) {
                 .result(authService.refreshToken(authHeader))
                 .build();
     }
+
     @PostMapping("/logout")
     public ApiResponse<String> logout(@RequestHeader("Authorization") String authHeader) {
         authService.logout(authHeader);

@@ -2,6 +2,7 @@ package com.homeverse.identity.service.impl;
 
 import com.homeverse.common.exception.AppException;
 import com.homeverse.common.exception.ErrorCode;
+import com.homeverse.identity.service.OAuth2LoginCodeService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.DisabledException;
 import com.homeverse.identity.dto.request.*;
@@ -47,6 +48,8 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtils jwtUtils;
     private final JavaMailSender mailSender;
     private final StringRedisTemplate redisTemplate;
+    private final OAuth2LoginCodeService oAuth2LoginCodeService;
+
 
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendUrl;
@@ -84,22 +87,22 @@ public class AuthServiceImpl implements AuthService {
         } catch (DisabledException e) {
             throw new AppException(ErrorCode.ACCOUNT_LOCKED);
         }
-        // 2. Lấy thông tin User ra
+
         UserCredential user = userRepository.findByEmail(loginDTO.getEmail())
-                // SỬA Ở ĐÂY: Dùng AppException + ErrorCode
+
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         if (!user.isActive()) {
-            // SỬA Ở ĐÂY: Dùng AppException + ErrorCode
+
             throw new AppException(ErrorCode.ACCOUNT_LOCKED);
         }
 
-        // 3. Đóng gói thêm userId
+
         java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
         extraClaims.put("userId", user.getId());
         extraClaims.put("role", user.getRole().name());
 
-        // 4. Sinh Token có chứa userId
+
         String token = jwtUtils.generateToken(extraClaims, user);
         // =======================
 
@@ -111,14 +114,24 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole().name())
                 .build();
     }
+    @Override
+    public AuthResponse exchangeOAuth2Code(String code) {
 
+        String email = oAuth2LoginCodeService.consumeEmail(code);
+
+        if (email == null || email.isBlank()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        return generateTokenForOAuth2(email);
+    }
     @Override
     @Transactional
     public void sendForgotPasswordEmail(String email) {
         UserCredential user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
-        // 1. Tạo token và lưu DB
+
         String token = UUID.randomUUID().toString();
         PasswordResetToken resetToken = PasswordResetToken.builder()
                 .token(token)
@@ -130,13 +143,13 @@ public class AuthServiceImpl implements AuthService {
 
         ClassLoader springBootClassLoader = Thread.currentThread().getContextClassLoader();
 
-        // 2. Chạy luồng ngầm
+
         CompletableFuture.runAsync(() -> {
-            // Lấy class loader hiện tại của luồng ngầm (để tí trả lại)
+
             ClassLoader originalThreadClassLoader = Thread.currentThread().getContextClassLoader();
 
             try {
-                // 🚨 2. TRUYỀN CÔNG LỰC: Ép luồng ngầm dùng Class Loader của Spring Boot
+
                 Thread.currentThread().setContextClassLoader(springBootClassLoader);
 
                 MimeMessage message = mailSender.createMimeMessage();
@@ -158,11 +171,11 @@ public class AuthServiceImpl implements AuthService {
                 helper.setText(htmlMsg, true);
                 mailSender.send(message);
 
-                log.info("✅ Đã gửi email khôi phục mật khẩu thành công tới: {}", email);
+                log.info("Đã gửi email khôi phục mật khẩu thành công tới: {}", email);
             } catch (Exception e) {
-                log.error("❌ Lỗi khi gửi email cho {}: {}", email, e.getMessage());
+                log.error(" Lỗi khi gửi email cho {}: {}", email, e.getMessage());
             } finally {
-                // 🚨 3. TRẢ LẠI NGUYÊN TRẠNG: Dọn dẹp Class Loader sau khi gửi xong
+
                 Thread.currentThread().setContextClassLoader(originalThreadClassLoader);
             }
         });
