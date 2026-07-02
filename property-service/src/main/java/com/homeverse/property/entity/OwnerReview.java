@@ -40,6 +40,8 @@ public class OwnerReview {
     private String ownerReply;
     @ElementCollection
     private List<String> images;
+    private String reviewerNameSnapshot;
+    private String reviewerAvatarSnapshot;
     private LocalDateTime ownerReplyAt;
     private LocalDateTime createdAt;
 

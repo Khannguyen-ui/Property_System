@@ -47,13 +47,17 @@ public class JwtUtils {
     }
 
     public boolean isTokenValidBasic(String token) {
-        try {
-            return !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
+    try {
+        Claims claims = extractAllClaims(token);
+        System.out.println("JWT CLAIMS = " + claims);
+        System.out.println("JWT EXP = " + claims.getExpiration());
+        return !claims.getExpiration().before(new Date());
+    } catch (Exception e) {
+        e.printStackTrace();
+        return false;
     }
-
+}
+    
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }

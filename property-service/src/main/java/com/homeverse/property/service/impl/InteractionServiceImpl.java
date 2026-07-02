@@ -1,12 +1,15 @@
 package com.homeverse.property.service.impl;
 
+import com.homeverse.common.dto.NotificationEvent;
 import com.homeverse.property.config.RecommendClient;
 import com.homeverse.property.dto.request.TrackEventRequest;
 import com.homeverse.property.dto.response.InteractionPropertyDTO;
 import com.homeverse.property.entity.Property;
+import com.homeverse.property.entity.PropertyContact;
 import com.homeverse.property.entity.UserPropertyInteraction;
 import com.homeverse.property.entity.UserPropertyInteraction.InteractionType;
 import com.homeverse.property.repository.InteractionRepository;
+import com.homeverse.property.repository.PropertyContactRepository;
 import com.homeverse.property.repository.PropertyRepository;
 import com.homeverse.property.service.InteractionService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +33,8 @@ public class InteractionServiceImpl implements InteractionService {
     private final StringRedisTemplate redisTemplate;
     private final RecommendClient recommendClient;
     private final PropertyRepository propertyRepository;
+    private final PropertyContactRepository propertyContactRepository;
+    private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
 
     @Override
     @Transactional
@@ -187,4 +193,73 @@ public void trackClick(Long userId, String guestId, Long propertyId) {
             userId,
             guestId);
 }
+@Override
+    public void contactProperty(
+            Long userId,
+            Long propertyId) {
+        log.info("CONTACT API HIT userId={}, propertyId={}", userId, propertyId);
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow();
+        redisTemplate.opsForValue()
+                .increment("property:" + propertyId + ":contacts");
+
+        sendContactNotification(userId, property);
+        if (!propertyContactRepository
+                .existsByUserIdAndPropertyId(userId, propertyId)) {
+
+            propertyContactRepository.save(
+                    PropertyContact.builder()
+                            .userId(userId)
+                            .ownerId(property.getOwnerId())
+                            .propertyId(propertyId)
+                            .build());
+        }
+        try {
+            recommendClient.track(
+                    TrackEventRequest.builder()
+                            .userId(userId)
+                            .itemId(propertyId)
+                            .itemType(property.getVideoUrl() != null ? "reel" : "property")
+                            .action("CONTACT")
+                            .watchTime(0.0)
+                            .duration(1.0)
+                            .price(property.getPrice() != null ? property.getPrice().doubleValue() : 0.0)
+                            .userBudget(property.getPrice() != null ? property.getPrice().doubleValue() : 0.0)
+                            .locationMatch(1)
+                            .categoryMatch(1)
+                            .district(property.getDistrict())
+                            .build());
+        } catch (Exception e) {
+            log.warn("Track CONTACT failed userId={}, propertyId={}: {}", userId, propertyId, e.getMessage());
+        }
+    }
+     private void sendContactNotification(Long userId, Property property) {
+        if (userId == null || property == null || property.getOwnerId() == null) {
+            return;
+        }
+
+        if (property.getOwnerId().equals(userId)) {
+            return;
+        }
+
+        try {
+            NotificationEvent event = NotificationEvent.builder()
+                    .receiverId(property.getOwnerId())
+                    .title("Có người liên hệ")
+                    .content("Có người vừa bấm liên hệ bài đăng của bạn")
+                    .type("PROPERTY_CONTACT")
+                    .referenceId(property.getId())
+                    .build();
+            System.out.println("SEND CONTACT NOTIFICATION = " + event);
+
+            kafkaTemplate.send("notification-topic", event);
+
+            System.out.println("SENT CONTACT NOTIFICATION OK");
+
+            kafkaTemplate.send("notification-topic", event);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

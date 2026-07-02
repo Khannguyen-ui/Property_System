@@ -76,6 +76,8 @@ public class OwnerReviewServiceImpl implements OwnerReviewService {
         review.setReviewerId(reviewerId);
         review.setPropertyId(request.getPropertyId());
         review.setRating(request.getRating());
+        review.setReviewerNameSnapshot("Người dùng #" + reviewerId);
+        review.setReviewerAvatarSnapshot(null);
         review.setComment(
                 request.getComment() != null
                         ? request.getComment().trim()
@@ -125,6 +127,8 @@ public class OwnerReviewServiceImpl implements OwnerReviewService {
                 .id(review.getId())
                 .ownerId(review.getOwnerId())
                 .reviewerId(review.getReviewerId())
+                .reviewerName(review.getReviewerNameSnapshot())
+                .reviewerAvatar(review.getReviewerAvatarSnapshot())
                 .propertyId(review.getPropertyId())
                 .rating(review.getRating())
                 .comment(review.getComment())
@@ -158,8 +162,12 @@ public class OwnerReviewServiceImpl implements OwnerReviewService {
         OwnerReview review = ownerReviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy review"));
 
-        if (!review.getOwnerId().equals(ownerId)) {
-            throw new RuntimeException("Bạn không có quyền phản hồi review này");
+        if (reply == null || reply.isBlank()) {
+            throw new RuntimeException("Nội dung phản hồi không được để trống");
+        }
+
+        if (review.getOwnerReply() != null) {
+            throw new RuntimeException("Review này đã được phản hồi");
         }
 
         review.setOwnerReply(reply);

@@ -64,11 +64,6 @@ public interface PropertyService {
             String propertyType
     );
 
-    void contactProperty(
-            Long userId,
-            Long propertyId
-    );
-
     Page<PropertyResponseDTO> getMyProperties(
             Long ownerId,
             int page,

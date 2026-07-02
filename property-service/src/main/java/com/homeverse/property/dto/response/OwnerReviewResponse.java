@@ -14,8 +14,6 @@ public class OwnerReviewResponse {
 
     private Long ownerId;
 
-    private Long reviewerId;
-
     private Long propertyId;
     private Boolean verified;
     private Integer rating;
@@ -23,6 +21,8 @@ public class OwnerReviewResponse {
     private String comment;
     private String ownerReply;
     private LocalDateTime ownerReplyAt;
-
+    private Long reviewerId;
+    private String reviewerName;
+    private String reviewerAvatar;
     private LocalDateTime createdAt;
 }

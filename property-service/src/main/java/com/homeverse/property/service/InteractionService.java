@@ -15,4 +15,8 @@ public interface InteractionService {
     void trackView(Long userId, String guestId, Long propertyId);
     void shareProperty(Long userId, Long propertyId);
     void trackClick(Long userId, String guestId, Long propertyId);
+    void contactProperty(
+            Long userId,
+            Long propertyId
+    );
 }

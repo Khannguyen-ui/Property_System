@@ -14,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)   // ← BẮT BUỘC để @PreAuthorize hoạt động
+@EnableMethodSecurity(prePostEnabled = true) // ← BẮT BUỘC để @PreAuthorize hoạt động
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -29,16 +29,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // ================== PUBLIC ==================
                         // Ai cũng xem được danh sách dự án & bất động sản
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/properties/**", "/projects/**","/amenities/**","/public/**","/owners/**").permitAll()
-
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/properties/**", "/projects/**",
+                                "/amenities/**", "/public/**", "/owners/**")
+                        .permitAll()
+                        .requestMatchers( "/owners/reviews").authenticated()
+                        .requestMatchers("/owners/reviews/*/reply").authenticated()
                         // ================== ADMIN ==================
                         // Tất cả request dưới /admin/** phải là ADMIN (URL level protection)
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
                         // ================== OWNER / USER ==================
                         // Các API còn lại (create/update/delete property...) yêu cầu đã login
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
 
                 // Đưa JwtAuthenticationFilter vào pipeline
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
