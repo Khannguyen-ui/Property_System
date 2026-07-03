@@ -21,14 +21,16 @@ public class UserInterestProfileService {
         Double avgScore = userBehaviorRepository.avgScoreByUserId(userId);
         Double avgBudget = userBehaviorRepository.avgBudgetByUserId(userId);
 
-        UserInterestProfile profile = UserInterestProfile.builder()
-                .userId(userId)
-                .favoriteItemType(favoriteItemType)
-                .favoriteAction(favoriteAction)
-                .avgScore(avgScore)
-                .avgBudget(avgBudget)
-                .updatedAt(LocalDateTime.now())
-                .build();
+        Double budget = userBehaviorRepository.avgBudgetByUserId(userId);
+
+UserInterestProfile profile = UserInterestProfile.builder()
+        .userId(userId)
+        .favoriteItemType(favoriteItemType)
+        .favoriteAction(favoriteAction)
+        .avgScore(avgScore)
+        .budget(budget)
+        .updatedAt(LocalDateTime.now())
+        .build();
 
         return userInterestProfileRepository.save(profile);
     }

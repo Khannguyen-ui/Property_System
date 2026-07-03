@@ -22,6 +22,24 @@ public class PropertyResponseDTO {
     private String district;
     private Long ownerId;
     private List<String> reasons;
+    private Double area;
+
+    private String province;
+    private String ward;
+    private String street;
+
+    private String propertyType;
+    private String transactionType;
+
+    private Integer bedrooms;
+    private Integer bathrooms;
+
+    private Boolean hasBalcony;
+
+    private String furnishingStatus;
+    private String availabilityStatus;
+
+    private List<String> amenities;
     private Double ownerTrustScore;
     private Long viewCount;
     private Long likeCount;

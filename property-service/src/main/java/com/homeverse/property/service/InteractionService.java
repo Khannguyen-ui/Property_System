@@ -12,7 +12,7 @@ public interface InteractionService {
     Page<InteractionPropertyDTO> getLikedProperties(Long userId, String guestId, int page, int size);
 
     Page<InteractionPropertyDTO> getSavedProperties(Long userId, String guestId, int page, int size);
-    void trackView(Long userId, String guestId, Long propertyId);
+    void trackView(Long userId, String guestId, Long propertyId, Double watchTime, Double duration);
     void shareProperty(Long userId, Long propertyId);
     void trackClick(Long userId, String guestId, Long propertyId);
     void contactProperty(

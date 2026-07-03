@@ -4,6 +4,8 @@ import pandas as pd
 import lightgbm as lgb
 import psycopg2
 
+MODEL_PATH = "app/model.pkl"
+
 ACTION_WEIGHT = {
     "VIEW": 0.3,
     "CLICK": 0.5,
@@ -14,6 +16,30 @@ ACTION_WEIGHT = {
     "CONTACT": 1.0,
     "SHARE": 0.7
 }
+
+FEATURE_COLUMNS = [
+    "watch_ratio",
+    "action_score",
+
+    "province_match",
+    "district_match",
+    "ward_match",
+    "street_match",
+
+    "category_match",
+    "transaction_match",
+
+    "price_diff_ratio",
+    "area_diff_ratio",
+
+    "bedroom_match",
+    "bathroom_match",
+    "balcony_match",
+    "furnishing_match",
+    "availability_match",
+
+    "amenity_match_ratio",
+]
 
 
 def get_connection():
@@ -37,10 +63,28 @@ def load_data():
             action,
             watch_time,
             duration,
+
             price,
             user_budget,
-            location_match,
+            area,
+            user_area,
+
+            province_match,
+            district_match,
+            ward_match,
+            street_match,
+
             category_match,
+            transaction_match,
+
+            bedroom_match,
+            bathroom_match,
+            balcony_match,
+            furnishing_match,
+            availability_match,
+
+            amenity_match_ratio,
+
             score
         FROM user_behavior
     """
@@ -52,31 +96,121 @@ def load_data():
     return df
 
 
+def ensure_columns(df):
+    default_values = {
+        "action": "VIEW",
+        "watch_time": 0,
+        "duration": 1,
+
+        "price": 0,
+        "user_budget": 0,
+        "area": 0,
+        "user_area": 0,
+
+        "province_match": 0,
+        "district_match": 0,
+        "ward_match": 0,
+        "street_match": 0,
+
+        "category_match": 0,
+        "transaction_match": 0,
+
+        "bedroom_match": 0,
+        "bathroom_match": 0,
+        "balcony_match": 0,
+        "furnishing_match": 0,
+        "availability_match": 0,
+
+        "amenity_match_ratio": 0,
+        "score": 0,
+    }
+
+    for column, default in default_values.items():
+        if column not in df.columns:
+            df[column] = default
+
+    return df
+
+
 def build_features(df):
-    df["action"] = df["action"].fillna("VIEW").str.upper()
+    df = ensure_columns(df)
 
-    df["watch_time"] = df["watch_time"].fillna(0)
-    df["duration"] = df["duration"].fillna(1)
-    df["price"] = df["price"].fillna(0)
-    df["user_budget"] = df["user_budget"].fillna(0)
-    df["location_match"] = df["location_match"].fillna(0)
-    df["category_match"] = df["category_match"].fillna(0)
+    df["action"] = df["action"].fillna("VIEW").astype(str).str.upper()
 
-    df["watch_ratio"] = df["watch_time"] / df["duration"].replace(0, 1)
+    numeric_columns = [
+        "watch_time",
+        "duration",
+        "price",
+        "user_budget",
+        "area",
+        "user_area",
 
-    df["action_score"] = df["action"].map(ACTION_WEIGHT).fillna(0.1)
+        "province_match",
+        "district_match",
+        "ward_match",
+        "street_match",
 
-    df["price_diff"] = abs(df["price"] - df["user_budget"])
+        "category_match",
+        "transaction_match",
 
-    X = df[
-        [
-            "watch_ratio",
-            "action_score",
-            "location_match",
-            "category_match",
-            "price_diff"
-        ]
+        "bedroom_match",
+        "bathroom_match",
+        "balcony_match",
+        "furnishing_match",
+        "availability_match",
+
+        "amenity_match_ratio",
+        "score",
     ]
+
+    for column in numeric_columns:
+        df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
+
+    df["duration"] = df["duration"].replace(0, 1)
+
+    df["watch_ratio"] = (
+        df["watch_time"] / df["duration"]
+    ).clip(0, 1)
+
+    df["action_score"] = (
+        df["action"]
+        .map(ACTION_WEIGHT)
+        .fillna(0.1)
+    )
+
+    budget_base = df["user_budget"].copy()
+    budget_base = budget_base.where(budget_base > 0, df["price"])
+    budget_base = budget_base.where(budget_base > 0, 1)
+
+    df["price_diff_ratio"] = (
+        (df["price"] - df["user_budget"]).abs() / budget_base
+    ).clip(0, 1)
+
+    area_base = df["user_area"].copy()
+    area_base = area_base.where(area_base > 0, df["area"])
+    area_base = area_base.where(area_base > 0, 1)
+
+    df["area_diff_ratio"] = (
+        (df["area"] - df["user_area"]).abs() / area_base
+    ).clip(0, 1)
+
+    for column in [
+        "province_match",
+        "district_match",
+        "ward_match",
+        "street_match",
+        "category_match",
+        "transaction_match",
+        "bedroom_match",
+        "bathroom_match",
+        "balcony_match",
+        "furnishing_match",
+        "availability_match",
+        "amenity_match_ratio",
+    ]:
+        df[column] = df[column].clip(0, 1)
+
+    X = df[FEATURE_COLUMNS]
 
     y = (df["score"] >= 0.6).astype(int)
 
@@ -92,10 +226,14 @@ def train():
 
     X, y = build_features(df)
 
+    if y.nunique() < 2:
+        print("Not enough label variety to train model")
+        return
+
     model = lgb.LGBMClassifier(
-        n_estimators=50,
+        n_estimators=80,
         learning_rate=0.05,
-        num_leaves=8,
+        num_leaves=12,
         min_data_in_leaf=1,
         min_data_in_bin=1,
         verbose=-1
@@ -103,9 +241,11 @@ def train():
 
     model.fit(X, y)
 
-    joblib.dump(model, "app/model.pkl")
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    joblib.dump(model, MODEL_PATH)
 
-    print("Model trained and saved to app/model.pkl")
+    print(f"Model trained and saved to {MODEL_PATH}")
+    print(f"Features used: {FEATURE_COLUMNS}")
 
 
 if __name__ == "__main__":

@@ -30,19 +30,38 @@ public class UserBehavior {
 
     private Double duration;
 
+    // ===== Price =====
     private Double price;
-    private Boolean suspicious;
-
-    private String fraudReason;
-
     private Double userBudget;
 
-    private Integer locationMatch;
+    // ===== Area =====
+    private Double area;
+    private Double userArea;
+
+    // ===== Feature Engineering =====
+    private Integer provinceMatch;
+    private Integer districtMatch;
+    private Integer wardMatch;
+    private Integer streetMatch;
 
     private Integer categoryMatch;
+    private Integer transactionMatch;
 
+    private Integer bedroomMatch;
+    private Integer bathroomMatch;
+    private Integer balconyMatch;
+
+    private Integer furnishingMatch;
+    private Integer availabilityMatch;
+
+    private Double amenityMatchRatio;
+
+    // ===== Fraud =====
+    private Boolean suspicious;
+    private String fraudReason;
+
+    // ===== Final label =====
     private Double score;
 
     private LocalDateTime createdAt;
-
 }

@@ -23,4 +23,22 @@ public class TrackEventRequest {
     private Integer categoryMatch;
 
     private String district;
+    private Double area;
+    private Double userArea;
+
+    private Integer provinceMatch;
+    private Integer districtMatch;
+    private Integer wardMatch;
+    private Integer streetMatch;
+
+    private Integer transactionMatch;
+
+    private Integer bedroomMatch;
+    private Integer bathroomMatch;
+    private Integer balconyMatch;
+
+    private Integer furnishingMatch;
+    private Integer availabilityMatch;
+
+    private Double amenityMatchRatio;
 }

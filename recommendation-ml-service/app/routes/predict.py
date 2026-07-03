@@ -14,10 +14,15 @@ logger = get_logger(__name__)
 @router.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest):
     try:
-        event = request.dict()
+        logger.info(
+            f"Predict user={request.userId}, item={request.itemId}"
+        )
+
+        event = request.model_dump()
 
         features = extract_features(event)
-        score = predict_score(features)
+
+        score = float(predict_score(features))
 
         try:
             save_score(
@@ -26,8 +31,8 @@ def predict(request: PredictRequest):
                 item_type=request.itemType,
                 score=score
             )
-        except Exception as redis_error:
-            logger.error(f"Redis save error: {redis_error}")
+        except Exception as e:
+            logger.warning(f"Redis save failed: {e}")
 
         if score >= 0.7:
             label = "high_interest"
@@ -35,6 +40,10 @@ def predict(request: PredictRequest):
             label = "medium_interest"
         else:
             label = "low_interest"
+
+        logger.info(
+            f"Prediction completed score={score:.3f}"
+        )
 
         return PredictResponse(
             userId=request.userId,
@@ -44,6 +53,10 @@ def predict(request: PredictRequest):
             label=label
         )
 
-    except Exception as e:
-        logger.error(f"Predict error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Prediction failed")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Prediction failed"
+        )

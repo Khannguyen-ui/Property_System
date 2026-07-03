@@ -4,6 +4,7 @@ import com.homeverse.common.dto.NotificationEvent;
 import com.homeverse.property.config.RecommendClient;
 import com.homeverse.property.dto.request.TrackEventRequest;
 import com.homeverse.property.dto.response.InteractionPropertyDTO;
+import com.homeverse.property.dto.response.UserInterestProfileDTO;
 import com.homeverse.property.entity.Property;
 import com.homeverse.property.entity.PropertyContact;
 import com.homeverse.property.entity.UserPropertyInteraction;
@@ -11,8 +12,10 @@ import com.homeverse.property.entity.UserPropertyInteraction.InteractionType;
 import com.homeverse.property.repository.InteractionRepository;
 import com.homeverse.property.repository.PropertyContactRepository;
 import com.homeverse.property.repository.PropertyRepository;
+import com.homeverse.property.service.FeatureCalculator;
 import com.homeverse.property.service.InteractionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,9 +23,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
 
 @Slf4j
 @Service
@@ -35,6 +35,7 @@ public class InteractionServiceImpl implements InteractionService {
     private final PropertyRepository propertyRepository;
     private final PropertyContactRepository propertyContactRepository;
     private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
+    private final FeatureCalculator featureCalculator;
 
     @Override
     @Transactional
@@ -68,8 +69,7 @@ public class InteractionServiceImpl implements InteractionService {
                 .map(property -> toInteractionPropertyDTO(property, isLiked(userId, guestId, property.getId()), true));
     }
 
-    private boolean handleToggle(Long userId, String guestId, Long propertyId, InteractionType type,
-            String redisKeySuffix) {
+    private boolean handleToggle(Long userId, String guestId, Long propertyId, InteractionType type, String redisKeySuffix) {
         var existing = interactionRepository.findInteraction(userId, guestId, propertyId, type);
         String redisKey = "property:" + propertyId + ":" + redisKeySuffix;
 
@@ -77,22 +77,46 @@ public class InteractionServiceImpl implements InteractionService {
             interactionRepository.delete(existing.get());
 
             Long current = redisTemplate.opsForValue().decrement(redisKey);
-
             if (current == null || current < 0) {
                 redisTemplate.opsForValue().set(redisKey, "0");
             }
 
             return false;
-        } else {
-            interactionRepository.save(UserPropertyInteraction.builder()
-                    .userId(userId)
-                    .guestId(guestId)
-                    .propertyId(propertyId)
-                    .interactionType(type)
-                    .build());
+        }
 
-            redisTemplate.opsForValue().increment(redisKey);
-            return true;
+        interactionRepository.save(UserPropertyInteraction.builder()
+                .userId(userId)
+                .guestId(guestId)
+                .propertyId(propertyId)
+                .interactionType(type)
+                .build());
+
+        redisTemplate.opsForValue().increment(redisKey);
+
+        trackRecommendation(userId, propertyId, type.name());
+
+        return true;
+    }
+
+    private void trackRecommendation(Long userId, Long propertyId, String action) {
+        if (userId == null) {
+            return;
+        }
+
+        try {
+            Property property = propertyRepository.findById(propertyId).orElseThrow();
+            UserInterestProfileDTO profile = recommendClient.getProfile(userId);
+
+            recommendClient.track(
+                    featureCalculator.buildTrackRequest(
+                            userId,
+                            property,
+                            profile,
+                            action
+                    )
+            );
+        } catch (Exception e) {
+            log.warn("Track {} failed userId={}, propertyId={}: {}", action, userId, propertyId, e.getMessage());
         }
     }
 
@@ -137,103 +161,75 @@ public class InteractionServiceImpl implements InteractionService {
                 .orElse(null);
     }
 
-    public void trackView(Long userId, String guestId, Long propertyId) {
+   @Override
+public void trackView(Long userId, String guestId, Long propertyId, Double watchTime, Double duration) {
+    redisTemplate.opsForValue().increment("property:" + propertyId + ":views");
 
-        redisTemplate.opsForValue()
-                .increment("property:" + propertyId + ":views");
+    if (userId == null) return;
 
-        log.info(
-                "View tracked: property={}, user={}, guest={}",
-                propertyId,
+    try {
+        Property property = propertyRepository.findById(propertyId).orElseThrow();
+        UserInterestProfileDTO profile = recommendClient.getProfile(userId);
+
+        TrackEventRequest event = featureCalculator.buildTrackRequest(
                 userId,
-                guestId);
+                property,
+                profile,
+                "VIEW"
+        );
+
+        event.setWatchTime(watchTime != null ? watchTime : 0.0);
+        event.setDuration(duration != null && duration > 0 ? duration : 1.0);
+
+        recommendClient.track(event);
+    } catch (Exception e) {
+        log.warn("Track VIEW failed userId={}, propertyId={}: {}", userId, propertyId, e.getMessage());
     }
+}
 
     @Override
     public void shareProperty(Long userId, Long propertyId) {
-
-        Property property = propertyRepository.findById(propertyId)
+        propertyRepository.findById(propertyId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bài đăng"));
 
-        redisTemplate.opsForValue()
-                .increment("property:" + propertyId + ":shares");
+        redisTemplate.opsForValue().increment("property:" + propertyId + ":shares");
 
-        recommendClient.track(
-                TrackEventRequest.builder()
-                        .userId(userId)
-                        .itemId(propertyId)
-                        .itemType(
-                                property.getVideoUrl() != null
-                                        ? "reel"
-                                        : "property")
-                        .action("SHARE")
-                        .watchTime(0.0)
-                        .duration(1.0)
-                        .price(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .userBudget(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .locationMatch(1)
-                        .categoryMatch(1)
-                        .district(property.getDistrict())
-                        .build());
+        trackRecommendation(userId, propertyId, "SHARE");
     }
-    @Override
-public void trackClick(Long userId, String guestId, Long propertyId) {
-    redisTemplate.opsForValue()
-            .increment("property:" + propertyId + ":clicks");
 
-    log.info(
-            "Click tracked: property={}, user={}, guest={}",
-            propertyId,
-            userId,
-            guestId);
-}
-@Override
-    public void contactProperty(
-            Long userId,
-            Long propertyId) {
+    @Override
+    public void trackClick(Long userId, String guestId, Long propertyId) {
+        redisTemplate.opsForValue().increment("property:" + propertyId + ":clicks");
+
+        log.info("Click tracked: property={}, user={}, guest={}", propertyId, userId, guestId);
+
+        trackRecommendation(userId, propertyId, "CLICK");
+    }
+
+    @Override
+    public void contactProperty(Long userId, Long propertyId) {
         log.info("CONTACT API HIT userId={}, propertyId={}", userId, propertyId);
-        Property property = propertyRepository.findById(propertyId)
-                .orElseThrow();
-        redisTemplate.opsForValue()
-                .increment("property:" + propertyId + ":contacts");
+
+        Property property = propertyRepository.findById(propertyId).orElseThrow();
+
+        redisTemplate.opsForValue().increment("property:" + propertyId + ":contacts");
 
         sendContactNotification(userId, property);
-        if (!propertyContactRepository
-                .existsByUserIdAndPropertyId(userId, propertyId)) {
 
+        if (!propertyContactRepository.existsByUserIdAndPropertyId(userId, propertyId)) {
             propertyContactRepository.save(
                     PropertyContact.builder()
                             .userId(userId)
                             .ownerId(property.getOwnerId())
                             .propertyId(propertyId)
-                            .build());
+                            .build()
+            );
         }
-        try {
-            recommendClient.track(
-                    TrackEventRequest.builder()
-                            .userId(userId)
-                            .itemId(propertyId)
-                            .itemType(property.getVideoUrl() != null ? "reel" : "property")
-                            .action("CONTACT")
-                            .watchTime(0.0)
-                            .duration(1.0)
-                            .price(property.getPrice() != null ? property.getPrice().doubleValue() : 0.0)
-                            .userBudget(property.getPrice() != null ? property.getPrice().doubleValue() : 0.0)
-                            .locationMatch(1)
-                            .categoryMatch(1)
-                            .district(property.getDistrict())
-                            .build());
-        } catch (Exception e) {
-            log.warn("Track CONTACT failed userId={}, propertyId={}: {}", userId, propertyId, e.getMessage());
-        }
+
+        trackRecommendation(userId, propertyId, "CONTACT");
     }
-     private void sendContactNotification(Long userId, Property property) {
+
+    private void sendContactNotification(Long userId, Property property) {
         if (userId == null || property == null || property.getOwnerId() == null) {
             return;
         }
@@ -250,16 +246,11 @@ public void trackClick(Long userId, String guestId, Long propertyId) {
                     .type("PROPERTY_CONTACT")
                     .referenceId(property.getId())
                     .build();
-            System.out.println("SEND CONTACT NOTIFICATION = " + event);
 
             kafkaTemplate.send("notification-topic", event);
-
-            System.out.println("SENT CONTACT NOTIFICATION OK");
-
-            kafkaTemplate.send("notification-topic", event);
-
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("Send contact notification failed propertyId={}, userId={}: {}",
+                    property.getId(), userId, e.getMessage());
         }
     }
 }

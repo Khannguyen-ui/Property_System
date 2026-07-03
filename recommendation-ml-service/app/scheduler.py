@@ -8,24 +8,27 @@ logger = get_logger(__name__)
 
 
 def run_train_job():
-    try:
-        logger.info("Start retraining model")
+    logger.info("Start retraining LightGBM model")
 
+    try:
         subprocess.run(
             ["python", "-m", "app.train"],
             check=True
         )
 
-        logger.info("Retraining model completed")
+        logger.info("Retraining completed successfully")
 
-    except Exception as e:
-        logger.error(f"Retraining model failed: {e}")
+    except subprocess.CalledProcessError as e:
+        logger.exception(f"Training process failed: {e}")
+
+    except Exception:
+        logger.exception("Unexpected error during retraining")
 
 
 def start_scheduler():
     schedule.every().day.at("02:00").do(run_train_job)
 
-    logger.info("Training scheduler started")
+    logger.info("Training scheduler started (every day at 02:00)")
 
     while True:
         schedule.run_pending()

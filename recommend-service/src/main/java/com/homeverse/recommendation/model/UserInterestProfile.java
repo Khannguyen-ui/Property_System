@@ -23,7 +23,26 @@ public class UserInterestProfile {
 
     private Double avgScore;
 
-    private Double avgBudget;
+    private Double budget;
+    private Double preferredArea;
+
+    private String province;
+    private String district;
+    private String ward;
+    private String street;
+
+    private String propertyType;
+    private String transactionType;
+
+    private Integer bedrooms;
+    private Integer bathrooms;
+    private Boolean hasBalcony;
+
+    private String furnishingStatus;
+    private String availabilityStatus;
+
+    @Column(columnDefinition = "TEXT")
+    private String amenities;
 
     private LocalDateTime updatedAt;
 }

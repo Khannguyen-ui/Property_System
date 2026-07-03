@@ -73,6 +73,7 @@ public class ChatController {
     }
 
     @GetMapping("/conversations")
+    
     public ResponseEntity<List<ConversationResponse>> getConversations() {
         return ResponseEntity.ok(chatService.getUserConversations());
     }

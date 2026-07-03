@@ -16,6 +16,23 @@ public class PredictRequest {
     private Double duration;
     private Double price;
     private Double userBudget;
-    private Integer locationMatch;
     private Integer categoryMatch;
+    private Double area;
+    private Double userArea;
+
+    private Integer provinceMatch;
+    private Integer districtMatch;
+    private Integer wardMatch;
+    private Integer streetMatch;
+
+    private Integer transactionMatch;
+
+    private Integer bedroomMatch;
+    private Integer bathroomMatch;
+    private Integer balconyMatch;
+
+    private Integer furnishingMatch;
+    private Integer availabilityMatch;
+
+    private Double amenityMatchRatio;
 }

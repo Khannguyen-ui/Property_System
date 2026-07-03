@@ -31,6 +31,7 @@ public class RecommendationService {
     private final RecommendRealtimeService recommendRealtimeService;
     private final StringRedisTemplate redisTemplate;
     private final SourceAnalyticsService sourceAnalyticsService;
+    private final FeatureCalculator featureCalculator;
 
     public PredictResponse predict(PredictRequest request) {
         try {
@@ -201,12 +202,18 @@ public class RecommendationService {
         double watchTime = request.getWatchTime() == null ? 0.0 : request.getWatchTime();
         double watchRatio = Math.min(1.0, Math.max(0.0, watchTime / duration));
 
-        double locationMatch = request.getLocationMatch() == null ? 0.0 : request.getLocationMatch();
+        double provinceMatch = request.getProvinceMatch() == null ? 0.0 : request.getProvinceMatch();
+        double districtMatch = request.getDistrictMatch() == null ? 0.0 : request.getDistrictMatch();
+        double wardMatch = request.getWardMatch() == null ? 0.0 : request.getWardMatch();
         double categoryMatch = request.getCategoryMatch() == null ? 0.0 : request.getCategoryMatch();
 
-        double score = actionScore * 0.55 +
-                watchRatio * 0.25 +
-                locationMatch * 0.10 +
+        double locationScore = provinceMatch * 0.25 +
+                districtMatch * 0.45 +
+                wardMatch * 0.30;
+
+        double score = actionScore * 0.50 +
+                watchRatio * 0.20 +
+                locationScore * 0.20 +
                 categoryMatch * 0.10;
 
         return Math.min(1.0, Math.max(0.0, score));
@@ -223,8 +230,25 @@ public class RecommendationService {
         predictRequest.setDuration(request.getDuration());
         predictRequest.setPrice(request.getPrice());
         predictRequest.setUserBudget(request.getUserBudget());
-        predictRequest.setLocationMatch(request.getLocationMatch());
         predictRequest.setCategoryMatch(request.getCategoryMatch());
+        predictRequest.setArea(request.getArea());
+        predictRequest.setUserArea(request.getUserArea());
+
+        predictRequest.setProvinceMatch(request.getProvinceMatch());
+        predictRequest.setDistrictMatch(request.getDistrictMatch());
+        predictRequest.setWardMatch(request.getWardMatch());
+        predictRequest.setStreetMatch(request.getStreetMatch());
+
+        predictRequest.setTransactionMatch(request.getTransactionMatch());
+
+        predictRequest.setBedroomMatch(request.getBedroomMatch());
+        predictRequest.setBathroomMatch(request.getBathroomMatch());
+        predictRequest.setBalconyMatch(request.getBalconyMatch());
+
+        predictRequest.setFurnishingMatch(request.getFurnishingMatch());
+        predictRequest.setAvailabilityMatch(request.getAvailabilityMatch());
+
+        predictRequest.setAmenityMatchRatio(request.getAmenityMatchRatio());
 
         return predictRequest;
     }
@@ -243,8 +267,36 @@ public class RecommendationService {
                 .duration(predictRequest.getDuration())
                 .price(predictRequest.getPrice())
                 .userBudget(predictRequest.getUserBudget())
-                .locationMatch(predictRequest.getLocationMatch())
+                .area(predictRequest.getArea())
+                .userArea(predictRequest.getUserArea())
+
+                .provinceMatch(predictRequest.getProvinceMatch())
+                .districtMatch(predictRequest.getDistrictMatch())
+                .wardMatch(predictRequest.getWardMatch())
+                .streetMatch(predictRequest.getStreetMatch())
+
                 .categoryMatch(predictRequest.getCategoryMatch())
+                .transactionMatch(predictRequest.getTransactionMatch())
+
+                .bedroomMatch(predictRequest.getBedroomMatch())
+                .bathroomMatch(predictRequest.getBathroomMatch())
+                .balconyMatch(predictRequest.getBalconyMatch())
+
+                .furnishingMatch(predictRequest.getFurnishingMatch())
+                .availabilityMatch(predictRequest.getAvailabilityMatch())
+
+                .amenityMatchRatio(predictRequest.getAmenityMatchRatio())
+
+                .transactionMatch(predictRequest.getTransactionMatch())
+
+                .bedroomMatch(predictRequest.getBedroomMatch())
+                .bathroomMatch(predictRequest.getBathroomMatch())
+                .balconyMatch(predictRequest.getBalconyMatch())
+
+                .furnishingMatch(predictRequest.getFurnishingMatch())
+                .availabilityMatch(predictRequest.getAvailabilityMatch())
+
+                .amenityMatchRatio(predictRequest.getAmenityMatchRatio())
                 .score(response.getScore())
                 .suspicious(fraudCheckResult.getDecision() == FraudDecision.SUSPICIOUS)
                 .fraudReason(fraudCheckResult.getReason())
