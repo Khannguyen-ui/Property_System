@@ -97,18 +97,6 @@ public class PropertyController {
                 propertyService.getMyProperties(ownerId, page, size, status, transactionType)
         );
     }
-
-
-    @PostMapping("/{propertyId}/contact")
-    public ResponseEntity<Void> contactProperty(
-            @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long propertyId) {
-        propertyService.contactProperty(
-                userId,
-                propertyId);
-
-        return ResponseEntity.ok().build();
-    }
     @GetMapping("/quota/me")
     public ApiResponse<OwnerQuotaResponse> getMyQuota(Authentication authentication) {
         Long ownerId = extractUserId(authentication);

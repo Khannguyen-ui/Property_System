@@ -61,11 +61,8 @@ public class PropertyServiceImpl implements PropertyService {
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final PromotionQueueRepository promotionQueueRepository;
     private final PropertyCommentRepository commentRepository;
-    private final RecommendClient recommendClient;
     private final KafkaTemplate<String, Object> objectKafkaTemplate;
-    private final KafkaTemplate<String, NotificationEvent> kafkaTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-    private final PropertyContactRepository propertyContactRepository;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -270,6 +267,7 @@ public class PropertyServiceImpl implements PropertyService {
         propertyRepository.hardDeleteById(id);
         log.info("Chủ nhà {} đã XÓA VĨNH VIỄN bài đăng ID: {}", ownerId, id);
     }
+
     @Override
     @Transactional(readOnly = true)
     public PropertyResponseDTO getPropertyInternal(Long id) {
@@ -277,6 +275,7 @@ public class PropertyServiceImpl implements PropertyService {
                 .orElseThrow(() -> new AppException(ErrorCode.PROPERTY_NOT_FOUND));
         return mapToResponse(property);
     }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void restoreProperty(Long ownerId, Long id) {
@@ -877,82 +876,6 @@ public class PropertyServiceImpl implements PropertyService {
         dto.setLiked(false);
         dto.setSaved(false);
         return dto;
-    }
-
-    @Override
-    public void contactProperty(
-            Long userId,
-            Long propertyId) {
-
-        Property property = propertyRepository.findById(propertyId)
-                .orElseThrow();
-        redisTemplate.opsForValue()
-                .increment("property:" + propertyId + ":contacts");
-
-        sendContactNotification(userId, property);
-        if (!propertyContactRepository
-                .existsByUserIdAndPropertyId(userId, propertyId)) {
-
-            propertyContactRepository.save(
-                    PropertyContact.builder()
-                            .userId(userId)
-                            .ownerId(property.getOwnerId())
-                            .propertyId(propertyId)
-                            .build());
-        }
-        recommendClient.track(
-                TrackEventRequest.builder()
-                        .userId(userId)
-                        .itemId(propertyId)
-                        .itemType(
-                                property.getVideoUrl() != null
-                                        ? "reel"
-                                        : "property")
-                        .action("CONTACT")
-                        .watchTime(0.0)
-                        .duration(1.0)
-                        .price(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .userBudget(
-                                property.getPrice() != null
-                                        ? property.getPrice().doubleValue()
-                                        : 0.0)
-                        .locationMatch(1)
-                        .categoryMatch(1)
-                        .district(property.getDistrict())
-                        .build());
-    }
-
-    private void sendContactNotification(Long userId, Property property) {
-        if (userId == null || property == null || property.getOwnerId() == null) {
-            return;
-        }
-
-        if (property.getOwnerId().equals(userId)) {
-            return;
-        }
-
-        try {
-            NotificationEvent event = NotificationEvent.builder()
-                    .receiverId(property.getOwnerId())
-                    .title("Có người liên hệ")
-                    .content("Có người vừa bấm liên hệ bài đăng của bạn")
-                    .type("PROPERTY_CONTACT")
-                    .referenceId(property.getId())
-                    .build();
-            System.out.println("SEND CONTACT NOTIFICATION = " + event);
-
-            kafkaTemplate.send("notification-topic", event);
-
-            System.out.println("SENT CONTACT NOTIFICATION OK");
-
-            kafkaTemplate.send("notification-topic", event);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
