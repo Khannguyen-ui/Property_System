@@ -31,4 +31,13 @@ public class DeviceTokenServiceImpl implements DeviceTokenService {
 
         repository.save(deviceToken);
     }
+    @Override
+public void unregister(Long userId, String token) {
+    repository.findByUserIdAndToken(userId, token)
+            .ifPresent(device -> {
+                device.setActive(false);
+                device.setUpdatedAt(LocalDateTime.now());
+                repository.save(device);
+            });
+}
 }

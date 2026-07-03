@@ -1,8 +1,12 @@
 package com.homeverse.notification.controller;
 
 import com.homeverse.common.dto.ApiResponse;
+import com.homeverse.notification.dto.DeviceTokenRemoveRequest;
+import com.homeverse.notification.dto.DeviceTokenRequest;
 import com.homeverse.notification.entity.Notification;
 import com.homeverse.notification.repository.NotificationRepository;
+import com.homeverse.notification.service.DeviceTokenService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +22,7 @@ import java.security.Principal;
 public class NotificationController {
 
     private final NotificationRepository notificationRepository;
-
+private final DeviceTokenService deviceTokenService;
 
     @GetMapping
     public ApiResponse<Page<Notification>> getAllNotifications(
@@ -80,4 +84,32 @@ public class NotificationController {
         notificationRepository.markAllAsReadByUserId(userId);
         return ApiResponse.<String>builder().result("Đã đánh dấu đọc tất cả").build();
     }
+    @PostMapping("/device-token")
+public ApiResponse<String> registerDeviceToken(
+        Principal principal,
+        @RequestBody DeviceTokenRequest request
+) {
+    Long userId = Long.valueOf(principal.getName());
+    request.setUserId(userId);
+
+    deviceTokenService.save(request);
+
+    return ApiResponse.<String>builder()
+            .result("Đã lưu FCM token")
+            .build();
+}
+
+@PostMapping("/device-token/unregister")
+public ApiResponse<String> unregisterDeviceToken(
+        Principal principal,
+        @RequestBody DeviceTokenRemoveRequest request
+) {
+    Long userId = Long.valueOf(principal.getName());
+
+    deviceTokenService.unregister(userId, request.getToken());
+
+    return ApiResponse.<String>builder()
+            .result("Đã hủy FCM token")
+            .build();
+}
 }

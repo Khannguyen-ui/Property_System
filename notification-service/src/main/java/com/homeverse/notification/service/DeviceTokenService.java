@@ -4,4 +4,5 @@ import com.homeverse.notification.dto.DeviceTokenRequest;
 
 public interface DeviceTokenService {
     void save(DeviceTokenRequest request);
+    void unregister(Long userId, String token);
 }
