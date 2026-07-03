@@ -22,7 +22,7 @@ import java.security.Principal;
 public class NotificationController {
 
     private final NotificationRepository notificationRepository;
-private final DeviceTokenService deviceTokenService;
+    private final DeviceTokenService deviceTokenService;
 
     @GetMapping
     public ApiResponse<Page<Notification>> getAllNotifications(
@@ -38,7 +38,6 @@ private final DeviceTokenService deviceTokenService;
                 .build();
     }
 
-
     @GetMapping("/unread")
     public ApiResponse<Page<Notification>> getUnreadNotifications(
             Principal principal,
@@ -53,7 +52,6 @@ private final DeviceTokenService deviceTokenService;
                 .build();
     }
 
-
     @GetMapping("/unread-count")
     public ApiResponse<Long> getUnreadCount(Principal principal) {
         String userId = principal.getName();
@@ -61,7 +59,6 @@ private final DeviceTokenService deviceTokenService;
                 .result(notificationRepository.countByUserIdAndIsReadFalse(userId))
                 .build();
     }
-
 
     @PutMapping("/{id}/read")
     public ApiResponse<String> markAsRead(@PathVariable Long id, Principal principal) {
@@ -77,39 +74,37 @@ private final DeviceTokenService deviceTokenService;
         return ApiResponse.<String>builder().result("Đã đánh dấu đọc").build();
     }
 
-
     @PutMapping("/read-all")
     public ApiResponse<String> markAllAsRead(Principal principal) {
         String userId = principal.getName();
         notificationRepository.markAllAsReadByUserId(userId);
         return ApiResponse.<String>builder().result("Đã đánh dấu đọc tất cả").build();
     }
+
     @PostMapping("/device-token")
-public ApiResponse<String> registerDeviceToken(
-        Principal principal,
-        @RequestBody DeviceTokenRequest request
-) {
-    Long userId = Long.valueOf(principal.getName());
-    request.setUserId(userId);
+    public ApiResponse<String> registerDeviceToken(
+            Principal principal,
+            @RequestBody DeviceTokenRequest request) {
+        Long userId = Long.valueOf(principal.getName());
+        request.setUserId(userId);
 
-    deviceTokenService.save(request);
+        deviceTokenService.save(request);
 
-    return ApiResponse.<String>builder()
-            .result("Đã lưu FCM token")
-            .build();
-}
+        return ApiResponse.<String>builder()
+                .result("Đã lưu FCM token")
+                .build();
+    }
 
-@PostMapping("/device-token/unregister")
-public ApiResponse<String> unregisterDeviceToken(
-        Principal principal,
-        @RequestBody DeviceTokenRemoveRequest request
-) {
-    Long userId = Long.valueOf(principal.getName());
+    @PostMapping("/device-token/unregister")
+    public ApiResponse<String> unregisterDeviceToken(
+            Principal principal,
+            @RequestBody DeviceTokenRemoveRequest request) {
+        Long userId = Long.valueOf(principal.getName());
 
-    deviceTokenService.unregister(userId, request.getToken());
+        deviceTokenService.unregister(userId, request.getToken());
 
-    return ApiResponse.<String>builder()
-            .result("Đã hủy FCM token")
-            .build();
-}
+        return ApiResponse.<String>builder()
+                .result("Đã hủy FCM token")
+                .build();
+    }
 }
