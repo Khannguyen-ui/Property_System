@@ -9,14 +9,23 @@ target/
 *.iml
 out/
 
+# VS Code
+.vscode/
+
 # Docker & Logs
 *.log
-docker/db_data/  # Nếu bạn có map volume database
+docker/db_data/
+
+# Environment
+.env
+.env.*
+*.env
+
+# Firebase Service Account (Backend)
+firebase-service-account.json
+**/firebase-service-account.json
+**/src/main/resources/firebase/*.json
 
 # OS
 .DS_Store
 Thumbs.db
-.env
-.env.prod
-*.env
-.vscode/

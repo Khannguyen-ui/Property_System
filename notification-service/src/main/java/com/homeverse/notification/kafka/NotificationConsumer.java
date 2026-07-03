@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homeverse.notification.entity.Notification;
 import com.homeverse.notification.repository.NotificationRepository;
+import com.homeverse.notification.service.FcmPushService;
 import com.homeverse.notification.service.UserPresenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class NotificationConsumer {
     private final SimpMessagingTemplate messagingTemplate;
     private final UserPresenceService presenceService;
     private final NotificationRepository notificationRepository;
+    private final FcmPushService fcmPushService;
 
     @KafkaListener(topics = "identity_server.public.user_credentials", groupId = "notification-group")
     public void consumeIdentityChanges(String message) {
@@ -30,15 +32,15 @@ public class NotificationConsumer {
             JsonNode rootNode = objectMapper.readTree(message);
             JsonNode payload = rootNode.path("payload").isMissingNode() ? rootNode : rootNode.path("payload");
 
-
-            if (!"u".equals(payload.path("op").asText(""))) return;
+            if (!"u".equals(payload.path("op").asText("")))
+                return;
 
             JsonNode after = payload.path("after");
-            if (after.isMissingNode() || after.isNull()) return;
+            if (after.isMissingNode() || after.isNull())
+                return;
 
             String userId = after.path("id").asText();
             String newRole = after.path("role").asText("");
-
 
             String oldRole = payload.path("before").path("role").asText("");
 
@@ -54,43 +56,53 @@ public class NotificationConsumer {
             log.error("Lỗi xử lý Kafka CDC Identity: {}", e.getMessage(), e);
         }
     }
-    @KafkaListener(topics = "notification-topic", groupId = "notification-group")
-public void consumeChatNotification(String message) {
-    try {
-        JsonNode jsonNode = objectMapper.readTree(message);
-        String recipientId = jsonNode.path("receiverId").asText(); 
-        
-        String title = jsonNode.path("title").asText("Tin nhắn mới");
-        String content = jsonNode.path("content").asText();
-        String type = jsonNode.path("type").asText("CHAT");
 
-        if (!recipientId.isEmpty()) {
-            sendNotificationToUser(recipientId, type, title, content);
+    @KafkaListener(topics = "notification-topic", groupId = "notification-group")
+    public void consumeChatNotification(String message) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(message);
+            String recipientId = jsonNode.path("receiverId").asText();
+
+            String title = jsonNode.path("title").asText("Tin nhắn mới");
+            String content = jsonNode.path("content").asText();
+            String type = jsonNode.path("type").asText("CHAT");
+
+            if (!recipientId.isEmpty()) {
+                sendNotificationToUser(recipientId, type, title, content);
+            }
+        } catch (Exception e) {
+            log.error("Lỗi parse JSON: {}", e.getMessage());
         }
+    }
+
+   private void sendNotificationToUser(String userId, String type, String title, String content) {
+    Notification notif = Notification.builder()
+            .userId(userId)
+            .type(type)
+            .title(title)
+            .content(content)
+            .isRead(false)
+            .createdAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")))
+            .build();
+
+    Notification savedNotif = notificationRepository.save(notif);
+
+    if (presenceService.isOnline(userId)) {
+        messagingTemplate.convertAndSendToUser(userId, "/queue/notifications", savedNotif);
+        log.info("Gửi realtime WebSocket cho user {}", userId);
+    } else {
+        log.info("User {} offline → chỉ lưu DB", userId);
+    }
+
+    try {
+        Long uid = Long.valueOf(userId);
+        fcmPushService.sendToUser(uid, title, content, type);
+        log.info("Đã gửi FCM push cho user {}", userId);
+    } catch (NumberFormatException e) {
+        log.warn("Không gửi FCM vì userId không phải số: {}", userId);
     } catch (Exception e) {
-        log.error("Lỗi parse JSON: {}", e.getMessage());
+        log.error("Lỗi gửi FCM push cho user {}: {}", userId, e.getMessage());
     }
 }
-
-
-    private void sendNotificationToUser(String userId, String type, String title, String content) {
-        Notification notif = Notification.builder()
-                .userId(userId)
-                .type(type)
-                .title(title)
-                .content(content)
-                .isRead(false)
-                .createdAt(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")))
-                .build();
-
-        Notification savedNotif = notificationRepository.save(notif);
-
-        if (presenceService.isOnline(userId)) {
-            messagingTemplate.convertAndSendToUser(userId, "/queue/notifications", savedNotif);
-            log.info("Gửi realtime WebSocket cho user {}", userId);
-        } else {
-            log.info("User {} offline → chỉ lưu DB", userId);
-        }
-    }
 
 }
