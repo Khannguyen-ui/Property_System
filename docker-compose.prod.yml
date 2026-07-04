@@ -381,7 +381,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       REDIS_HOST: redis
-      ML_SERVICE_URL: ${ML_SERVICE_URL}
+      ML_SERVICE_URL: http://recommendation-ml-service:8000
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m
     networks:
       - homeverse-network
