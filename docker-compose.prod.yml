@@ -383,3 +383,4 @@ networks:
 volumes:
   postgres_data:
   mongodb_data:
+  grafana_data:

@@ -79,18 +79,28 @@ services:
   prometheus:
     image: prom/prometheus
     container_name: prometheus
+    restart: unless-stopped
     ports:
       - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.external-url=https://homeverse-bds.duckdns.org/prometheus/"
+      - "--web.route-prefix=/"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - homeverse-network
-
   grafana:
     image: grafana/grafana
     container_name: grafana
+    restart: unless-stopped
     ports:
       - "3001:3000"
+    environment:
+      GF_SERVER_ROOT_URL: https://homeverse-bds.duckdns.org/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
     networks:
       - homeverse-network
 
@@ -336,6 +346,7 @@ services:
       - "8080:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      
     depends_on:
       - identity-service
       - property-service
@@ -346,3 +357,5 @@ services:
 networks:
   homeverse-network:
     driver: bridge
+volumes:
+  grafana_data:
