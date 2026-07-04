@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/wallets/debit").permitAll()
                 .requestMatchers("/api/wallets/debit/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

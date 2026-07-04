@@ -32,7 +32,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 🟢 GIỮ NGUYÊN LOGIC CỦA SẾP: Bỏ qua API nội bộ
         // =========================================================
         String path = request.getRequestURI();
-        if (path != null && path.contains("/api/wallets/debit")) {
+
+        if (path != null && (path.startsWith("/actuator")
+                || path.contains("/api/wallets/debit"))) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -54,7 +56,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.warn(" [Wallet Service] Kẻ gian dùng Token đã bị Logout/Thu hồi. Chặn ngay!");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\": 401, \"message\": \"UNAUTHENTICATED\", \"result\": \"Token đã bị thu hồi, vui lòng đăng nhập lại\"}");
+                response.getWriter().write(
+                        "{\"code\": 401, \"message\": \"UNAUTHENTICATED\", \"result\": \"Token đã bị thu hồi, vui lòng đăng nhập lại\"}");
                 return; // Khóa cửa!
             }
         } catch (Exception e) {
@@ -76,7 +79,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         log.warn("[Wallet Service] Token của {} đã để quá hạn, ép Frontend đổi Token mới!", userEmail);
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"code\": 4011, \"message\": \"TOKEN_STALE\", \"result\": \"Quyền hạn đã thay đổi, vui lòng làm mới token\"}");
+                        response.getWriter().write(
+                                "{\"code\": 4011, \"message\": \"TOKEN_STALE\", \"result\": \"Quyền hạn đã thay đổi, vui lòng làm mới token\"}");
                         return; // Ép đi lấy thẻ mới!
                     }
                 } catch (Exception e) {
@@ -94,7 +98,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    log.info(" [Wallet Service] Xác thực thành công cho ID: {} (Email: {}, Role: {})", userId, userEmail, role);
+                    log.info(" [Wallet Service] Xác thực thành công cho ID: {} (Email: {}, Role: {})", userId,
+                            userEmail, role);
                 }
             }
         } catch (Exception e) {

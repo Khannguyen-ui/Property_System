@@ -32,3 +32,23 @@ logging:
   level:
     com.homeverse.search.kafka.consumer: INFO
     org.springframework.kafka: INFO
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: search-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true

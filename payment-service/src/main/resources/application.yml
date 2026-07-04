@@ -55,6 +55,26 @@ jwt:
 services:
   wallet-service:
     url: ${WALLET_SERVICE_URL:http://wallet-service:8089}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: payment-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 
   

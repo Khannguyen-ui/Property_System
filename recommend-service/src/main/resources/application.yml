@@ -54,14 +54,23 @@ recommendation:
     topic:
       user-behavior: user-behavior
       recommendation-update: recommendation-update
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
+
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: recommend-service
+
   prometheus:
     metrics:
       export:

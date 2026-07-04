@@ -27,16 +27,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
-    ) throws ServletException, IOException {
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
+        String path = request.getRequestURI();
 
-        final String authHeader = request.getHeader("Authorization");
-
-        // Nếu không có Token thì cho qua, các Filter sau của Spring Security sẽ chặn lại nếu cần
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (path != null && path.startsWith("/actuator")) {
             filterChain.doFilter(request, response);
             return;
         }
+        final String authHeader = request.getHeader("Authorization");
+
+        // Nếu không có Token thì cho qua, các Filter sau của Spring Security sẽ chặn
+        // lại nếu cần
 
         final String jwt = authHeader.substring(7);
 
@@ -50,8 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userId,
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                    );
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                     log.info("Xác thực thành công cho User ID: {} với Role: {}", userId, role);
                 }

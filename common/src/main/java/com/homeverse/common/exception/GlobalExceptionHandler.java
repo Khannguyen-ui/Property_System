@@ -7,23 +7,23 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
 
-    @ExceptionHandler(value = AppException.class)
-    public ResponseEntity<ApiResponse<Void>> handlingAppException(AppException exception) {
-        ErrorCode errorCode = exception.getErrorCode();
+@ExceptionHandler(NoResourceFoundException.class)
+public ResponseEntity<Void> handleNoResourceFound(NoResourceFoundException ex) {
 
-        return ResponseEntity
-                .status(errorCode.getStatusCode())
-                .body(ApiResponse.<Void>builder()
-                        .code(errorCode.getCode())
-                        .message(errorCode.getMessage())
-                        .build());
+    if ("favicon.ico".equals(ex.getResourcePath())) {
+        return ResponseEntity.notFound().build();
     }
+
+    log.warn("Resource not found: {}", ex.getResourcePath());
+
+    return ResponseEntity.notFound().build();
+}
 
 
     @ExceptionHandler(value = AccessDeniedException.class)

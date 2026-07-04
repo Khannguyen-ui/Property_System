@@ -30,6 +30,7 @@ public class SecurityConfig {
                                 "/customers/*/public-profile",
                                 "/customers/*/public-banner"
                         ).permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

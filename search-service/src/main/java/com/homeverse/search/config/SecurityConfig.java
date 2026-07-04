@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers("/search/properties").permitAll()
                         .requestMatchers("/api/v1/analytics/**").permitAll()
                         .requestMatchers("/search/properties/by-ids").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
 
 
 

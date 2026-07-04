@@ -30,7 +30,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         .authorizeHttpRequests(auth -> auth
             
             .requestMatchers("/api/payment/vnpay-return/**", "/api/payment/vnpay-ipn/**").permitAll()
-        
+            .requestMatchers("/actuator/**").permitAll()
             .requestMatchers("/api/payment/create-payment").permitAll() 
             .requestMatchers("/api/packages/**").permitAll()
             

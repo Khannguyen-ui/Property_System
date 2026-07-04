@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/ws-notifier/**").permitAll() // WebSocket handshake ban đầu là permitAll
                         .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // QUAN TRỌNG: Thêm filter xác thực JWT vào đây

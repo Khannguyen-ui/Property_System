@@ -43,5 +43,25 @@ MEDIA_SERVICE_URL: ${MEDIA_SERVICE_URL:http://media-service:8084}
 
 jwt:
   secret: ${JWT_SECRET}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: customer-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
   

@@ -40,9 +40,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/login/**", "/oauth2/**", "/error", "/favicon.ico").permitAll()
+                        .requestMatchers("/auth/**", "/login/**", "/oauth2/**", "/error", "/favicon.ico","/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
+                
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)

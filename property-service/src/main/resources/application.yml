@@ -46,3 +46,23 @@ homeverse:
 
 jwt:
   secret: ${JWT_SECRET}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: property-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true

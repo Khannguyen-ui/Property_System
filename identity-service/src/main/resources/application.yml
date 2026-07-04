@@ -74,5 +74,24 @@ logging:
 
 frontend:
   url: ${FRONTEND_URL:http://localhost:5173}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
 
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: identity-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 

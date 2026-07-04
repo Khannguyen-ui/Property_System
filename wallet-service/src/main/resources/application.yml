@@ -49,6 +49,26 @@ homeverse:
 jwt:
   # Dùng chung secret để verify token khi trừ tiền
   secret: ${JWT_SECRET}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
+  metrics:
+    tags:
+      application: wallet-service
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 
 

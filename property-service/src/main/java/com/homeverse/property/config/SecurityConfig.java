@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers( "/owners/reviews").authenticated()
                         .requestMatchers("/owners/reviews/*/reply").authenticated()
+                        .requestMatchers("/actuator/**").permitAll()
                         // ================== ADMIN ==================
                         // Tất cả request dưới /admin/** phải là ADMIN (URL level protection)
                         .requestMatchers("/admin/**").hasRole("ADMIN")
