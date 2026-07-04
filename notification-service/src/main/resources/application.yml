@@ -20,9 +20,6 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
-firebase:
-  config:
-    path: ${FIREBASE_CONFIG_PATH:src/main/resources/firebase/firebase-service-account.json}
   jpa:
     hibernate:
       ddl-auto: update
@@ -31,6 +28,10 @@ firebase:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+firebase:
+  config:
+    path: ${FIREBASE_CONFIG_PATH:src/main/resources/firebase/firebase-service-account.json}
 
 jwt:
   secret: ${JWT_SECRET}
