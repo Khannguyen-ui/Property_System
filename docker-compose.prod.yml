@@ -93,32 +93,7 @@ services:
       - mongodb_data:/data/db
     networks:
       - homeverse-network
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    restart: unless-stopped
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--web.external-url=https://homeverse-bds.duckdns.org/prometheus/"
-      - "--web.route-prefix=/"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - homeverse-network
 
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    restart: unless-stopped
-    environment:
-      GF_SERVER_ROOT_URL: https://homeverse-bds.duckdns.org/grafana/
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-    networks:
-      - homeverse-network
   identity-service:
     build:
       context: ./identity-service
@@ -381,7 +356,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       REDIS_HOST: redis
-      ML_SERVICE_URL: http://recommendation-ml-service:8000
+      ML_SERVICE_URL: ${ML_SERVICE_URL}
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m
     networks:
       - homeverse-network
@@ -408,4 +383,3 @@ networks:
 volumes:
   postgres_data:
   mongodb_data:
-  grafana_data:
