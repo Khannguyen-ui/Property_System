@@ -351,6 +351,8 @@ services:
       - identity-service
       - property-service
       - recommend-service
+      - grafana
+      - prometheus
     networks:
       - homeverse-network
 
