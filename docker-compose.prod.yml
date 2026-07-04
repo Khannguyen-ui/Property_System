@@ -47,6 +47,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     networks:
       - homeverse-network
+
   debezium-connect:
     image: quay.io/debezium/connect:2.4
     container_name: debezium-connect
@@ -59,24 +60,21 @@ services:
     environment:
       BOOTSTRAP_SERVERS: kafka:29092
       GROUP_ID: debezium-connect-cluster
-
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
       STATUS_STORAGE_TOPIC: connect_statuses
-
       CONFIG_STORAGE_REPLICATION_FACTOR: 1
       OFFSET_STORAGE_REPLICATION_FACTOR: 1
       STATUS_STORAGE_REPLICATION_FACTOR: 1
-
       KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
       VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
-
       REST_ADVERTISED_HOST_NAME: debezium-connect
       REST_PORT: 8083
     networks:
       - homeverse-network
+
   redis:
     image: redis:alpine
     container_name: redis
@@ -155,31 +153,31 @@ services:
       - homeverse-network
 
   notification-service:
-  build:
-    context: ./notification-service
-    dockerfile: Dockerfile
-  container_name: notification-service
-  restart: unless-stopped
-  depends_on:
-    - kafka
-    - redis
-    - postgres
-  env_file:
-    - .env.prod
-  environment:
-    SPRING_PROFILES_ACTIVE: docker
-    TZ: Asia/Ho_Chi_Minh
-    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
-    SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-    SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-    REDIS_HOST: redis
-    FIREBASE_CONFIG_PATH: /app/firebase/firebase-service-account.json
-    JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
-  volumes:
-    - /opt/homeverse/firebase/firebase-service-account.json:/app/firebase/firebase-service-account.json:ro
-  networks:
-    - homeverse-network
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - redis
+      - postgres
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      FIREBASE_CONFIG_PATH: /app/firebase/firebase-service-account.json
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+    volumes:
+      - /opt/homeverse/firebase/firebase-service-account.json:/app/firebase/firebase-service-account.json:ro
+    networks:
+      - homeverse-network
 
   property-service:
     build:
@@ -310,6 +308,7 @@ services:
       JAVA_TOOL_OPTIONS: -Xms128m -Xmx512m
     networks:
       - homeverse-network
+
   recommendation-ml-service:
     build:
       context: ./recommendation-ml-service
@@ -336,6 +335,7 @@ services:
       - kafka
     networks:
       - homeverse-network
+
   recommend-service:
     build:
       context: ./recommend-service
@@ -373,7 +373,6 @@ services:
       - /opt/homeverse/frontend-dist:/usr/share/nginx/html:ro
       - /opt/homeverse/certbot-www:/var/www/certbot:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-
     networks:
       - homeverse-network
 
