@@ -21,11 +21,14 @@ public class TrackEventRequest {
 
     private Integer locationMatch;
     private Integer categoryMatch;
-
-    private String district;
     private Double area;
     private Double userArea;
-
+    private String province;
+    private String district;
+    private String ward;
+    private String street;
+    private String propertyType;
+    private String transactionType;
     private Integer provinceMatch;
     private Integer districtMatch;
     private Integer wardMatch;

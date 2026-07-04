@@ -55,7 +55,19 @@ public class UserBehavior {
     private Integer availabilityMatch;
 
     private Double amenityMatchRatio;
+    // ===== Property metadata =====
 
+    private String province;
+
+    private String district;
+
+    private String ward;
+
+    private String street;
+
+    private String propertyType;
+
+    private String transactionType;
     // ===== Fraud =====
     private Boolean suspicious;
     private String fraudReason;

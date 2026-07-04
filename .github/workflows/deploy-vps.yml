@@ -37,7 +37,26 @@ jobs:
             test -f kafka/connects/customer-db-connector.json
             test -f kafka/connects/debezium-identity.json
             test -f kafka/connects/debezium-property-connector.json
+            echo "=== Check Firebase secret file ==="
+            FIREBASE_FILE="/opt/homeverse/firebase/firebase-service-account.json"
 
+            if [ -d "$FIREBASE_FILE" ]; then
+              echo "ERROR: $FIREBASE_FILE is a directory, expected JSON file"
+              exit 1
+            fi
+
+            if [ ! -f "$FIREBASE_FILE" ]; then
+              echo "ERROR: Firebase service account file not found: $FIREBASE_FILE"
+              exit 1
+            fi
+
+            if [ ! -s "$FIREBASE_FILE" ]; then
+              echo "ERROR: Firebase service account file is empty: $FIREBASE_FILE"
+              exit 1
+            fi
+
+            echo "Firebase file OK"
+            stat -c "%F | %s bytes | %n" "$FIREBASE_FILE"
             echo "=== Check Docker ==="
             docker --version
             docker compose version

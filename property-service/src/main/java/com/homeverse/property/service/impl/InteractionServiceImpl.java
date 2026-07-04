@@ -98,27 +98,49 @@ public class InteractionServiceImpl implements InteractionService {
         return true;
     }
 
-    private void trackRecommendation(Long userId, Long propertyId, String action) {
-        if (userId == null) {
-            return;
-        }
-
-        try {
-            Property property = propertyRepository.findById(propertyId).orElseThrow();
-            UserInterestProfileDTO profile = recommendClient.getProfile(userId);
-
-            recommendClient.track(
-                    featureCalculator.buildTrackRequest(
-                            userId,
-                            property,
-                            profile,
-                            action
-                    )
-            );
-        } catch (Exception e) {
-            log.warn("Track {} failed userId={}, propertyId={}: {}", action, userId, propertyId, e.getMessage());
-        }
+private void trackRecommendation(Long userId, Long propertyId, String action) {
+    if (userId == null) {
+        return;
     }
+
+    try {
+        Property property = propertyRepository.findById(propertyId).orElseThrow();
+        UserInterestProfileDTO profile = recommendClient.getProfile(userId);
+
+        TrackEventRequest request = featureCalculator.buildTrackRequest(
+                userId,
+                property,
+                profile,
+                action
+        );
+    log.info(
+        "SEND TO RECOMMEND => userId={}, itemId={}, action={}, provinceMatch={}, districtMatch={}, wardMatch={}, streetMatch={}, locationMatch={}, categoryMatch={}",
+        request.getUserId(),
+        request.getItemId(),
+        request.getAction(),
+        request.getProvinceMatch(),
+        request.getDistrictMatch(),
+        request.getWardMatch(),
+        request.getStreetMatch(),
+        request.getLocationMatch(),
+        request.getCategoryMatch()
+);
+
+        log.info(
+    "Property {} => province={}, district={}, ward={}, street={}",
+    property.getId(),
+    property.getProvince(),
+    property.getDistrict(),
+    property.getWard(),
+    property.getStreet()
+);
+
+        recommendClient.track(request);
+
+    } catch (Exception e) {
+        log.warn("Track {} failed userId={}, propertyId={}: {}", action, userId, propertyId, e.getMessage());
+    }
+}
 
     private boolean isLiked(Long userId, String guestId, Long propertyId) {
         return interactionRepository

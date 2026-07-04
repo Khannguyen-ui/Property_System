@@ -269,7 +269,12 @@ public class RecommendationService {
                 .userBudget(predictRequest.getUserBudget())
                 .area(predictRequest.getArea())
                 .userArea(predictRequest.getUserArea())
-
+                .province(request.getProvince())
+                .district(request.getDistrict())
+                .ward(request.getWard())
+                .street(request.getStreet())
+                .propertyType(request.getPropertyType())
+                .transactionType(request.getTransactionType())
                 .provinceMatch(predictRequest.getProvinceMatch())
                 .districtMatch(predictRequest.getDistrictMatch())
                 .wardMatch(predictRequest.getWardMatch())

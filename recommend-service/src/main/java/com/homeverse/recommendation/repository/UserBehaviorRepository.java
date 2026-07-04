@@ -109,7 +109,74 @@ public interface UserBehaviorRepository extends JpaRepository<UserBehavior, Long
                 LIMIT 20
             """, nativeQuery = true)
     List<TrendingItemProjection> findTrendingReels();
+@Query("""
+    SELECT u.province
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.province IS NOT NULL
+      AND u.province <> ''
+    GROUP BY u.province
+    ORDER BY COUNT(u.province) DESC
+    LIMIT 1
+""")
+String findFavoriteProvinceByUserId(Long userId);
 
+@Query("""
+    SELECT u.ward
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.ward IS NOT NULL
+      AND u.ward <> ''
+    GROUP BY u.ward
+    ORDER BY COUNT(u.ward) DESC
+    LIMIT 1
+""")
+String findFavoriteWardByUserId(Long userId);
+
+@Query("""
+    SELECT u.street
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.street IS NOT NULL
+      AND u.street <> ''
+    GROUP BY u.street
+    ORDER BY COUNT(u.street) DESC
+    LIMIT 1
+""")
+String findFavoriteStreetByUserId(Long userId);
+
+@Query("""
+    SELECT u.propertyType
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.propertyType IS NOT NULL
+      AND u.propertyType <> ''
+    GROUP BY u.propertyType
+    ORDER BY COUNT(u.propertyType) DESC
+    LIMIT 1
+""")
+String findFavoritePropertyTypeByUserId(Long userId);
+
+@Query("""
+    SELECT u.transactionType
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.transactionType IS NOT NULL
+      AND u.transactionType <> ''
+    GROUP BY u.transactionType
+    ORDER BY COUNT(u.transactionType) DESC
+    LIMIT 1
+""")
+String findFavoriteTransactionTypeByUserId(Long userId);
+
+@Query("""
+    SELECT COALESCE(AVG(u.area), 0)
+    FROM UserBehavior u
+    WHERE u.userId = :userId
+      AND u.area IS NOT NULL
+      AND u.area > 0
+""")
+Double avgAreaByUserId(Long userId);
     @Query(value = """
                 WITH current_user_likes AS (
                     SELECT DISTINCT item_id

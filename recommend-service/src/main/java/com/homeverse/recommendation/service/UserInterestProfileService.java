@@ -19,18 +19,30 @@ public class UserInterestProfileService {
         String favoriteItemType = userBehaviorRepository.findFavoriteItemTypeByUserId(userId);
         String favoriteAction = userBehaviorRepository.findFavoriteActionByUserId(userId);
         Double avgScore = userBehaviorRepository.avgScoreByUserId(userId);
-        Double avgBudget = userBehaviorRepository.avgBudgetByUserId(userId);
-
         Double budget = userBehaviorRepository.avgBudgetByUserId(userId);
 
-UserInterestProfile profile = UserInterestProfile.builder()
-        .userId(userId)
-        .favoriteItemType(favoriteItemType)
-        .favoriteAction(favoriteAction)
-        .avgScore(avgScore)
-        .budget(budget)
-        .updatedAt(LocalDateTime.now())
-        .build();
+        String province = userBehaviorRepository.findFavoriteProvinceByUserId(userId);
+        String ward = userBehaviorRepository.findFavoriteWardByUserId(userId);
+        String street = userBehaviorRepository.findFavoriteStreetByUserId(userId);
+        String propertyType = userBehaviorRepository.findFavoritePropertyTypeByUserId(userId);
+        String transactionType = userBehaviorRepository.findFavoriteTransactionTypeByUserId(userId);
+        Double preferredArea = userBehaviorRepository.avgAreaByUserId(userId);
+
+        UserInterestProfile profile = userInterestProfileRepository
+                .findById(userId)
+                .orElse(UserInterestProfile.builder().userId(userId).build());
+
+        profile.setFavoriteItemType(favoriteItemType);
+        profile.setFavoriteAction(favoriteAction);
+        profile.setAvgScore(avgScore);
+        profile.setBudget(budget);
+        profile.setProvince(province);
+        profile.setWard(ward);
+        profile.setStreet(street);
+        profile.setPropertyType(propertyType);
+        profile.setTransactionType(transactionType);
+        profile.setPreferredArea(preferredArea);
+        profile.setUpdatedAt(LocalDateTime.now());
 
         return userInterestProfileRepository.save(profile);
     }

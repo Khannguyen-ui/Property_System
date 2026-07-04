@@ -9,6 +9,8 @@ import com.homeverse.recommendation.dto.PropertyResponseDTO;
 import com.homeverse.recommendation.dto.TrackEventRequest;
 import com.homeverse.recommendation.dto.PropertyReelResponseDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/recommend")
 @RequiredArgsConstructor
+@Slf4j
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
@@ -37,6 +40,14 @@ public List<PropertyReelResponseDTO> getRecommendedReels(@PathVariable Long user
 }
 @PostMapping("/track")
 public PredictResponse track(@RequestBody TrackEventRequest request) {
+  log.info(
+    "TRACK REQUEST => province={}, ward={}, street={}, propertyType={}, transactionType={}",
+    request.getProvince(),
+    request.getWard(),
+    request.getStreet(),
+    request.getPropertyType(),
+    request.getTransactionType()
+);
     return recommendationService.track(request);
 }
 @GetMapping("/users/{userId}/properties/final")

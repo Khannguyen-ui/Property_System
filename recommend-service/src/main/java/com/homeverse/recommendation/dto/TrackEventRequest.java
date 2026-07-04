@@ -1,7 +1,19 @@
 package com.homeverse.recommendation.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
 @Data
 public class TrackEventRequest {
 
@@ -29,9 +41,14 @@ public class TrackEventRequest {
     private Integer districtMatch;
     private Integer wardMatch;
     private Integer streetMatch;
+    private Integer locationMatch;
 
     private Integer transactionMatch;
-
+    private String province;
+    private String ward;
+    private String street;
+    private String propertyType;
+    private String transactionType;
     private Integer bedroomMatch;
     private Integer bathroomMatch;
     private Integer balconyMatch;
